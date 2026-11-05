@@ -10,6 +10,8 @@ app.use(express.json());
 app.use("/reports", reportRoutes);
 
 app.get("/health", (_req, res) => {
+  console.log("GET /health recebido!");
+
   res.status(200).json({
     status: "ok",
     message: "Economyk API está funcionando!",

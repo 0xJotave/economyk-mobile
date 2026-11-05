@@ -5,6 +5,8 @@ import {
 } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
+import { AppState } from "react-native";
+import { useEffect } from "react";
 
 import {
   Fraunces_500Medium,
@@ -22,6 +24,7 @@ import {
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import AppTabs from "@/components/app-tabs";
 import { ThemeProvider, useAppTheme } from "@/context/theme-context";
+import { wakeUpApi } from "@/services/api-wakeup";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,6 +41,18 @@ function MainContent() {
     "Body SemiBold": Manrope_600SemiBold,
     "Body Bold": Manrope_700Bold,
   });
+
+  useEffect(() => {
+    wakeUpApi();
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        wakeUpApi();
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded) {
     return null;
