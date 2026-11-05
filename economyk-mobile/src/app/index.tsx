@@ -175,9 +175,11 @@ export default function HomeScreen() {
                 activeTab === "analytics" && styles.switchTextActive,
               ]}
             >
-              Analytics
+              Estatísticas
             </Text>
           </TouchableOpacity>
+
+          <FloatingThemeButton />
         </View>
 
         {/* HEADER / MÊS (Sem o botão duplicado) */}
@@ -345,9 +347,6 @@ export default function HomeScreen() {
             <Feather name="plus" size={28} color={COLORS.white} />
           </TouchableOpacity>
         )}
-
-        {/* BOTÃO FLUTUANTE DISCRETO DE TEMA */}
-        <FloatingThemeButton />
 
         <TransactionModal
           visible={isModalOpen}

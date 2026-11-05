@@ -33,7 +33,7 @@ export function FloatingThemeButton() {
     <AnimatedTouchable
       onPress={handlePress}
       style={[
-        styles.fab,
+        styles.button,
         { backgroundColor: colors.surface, borderColor: colors.border },
         animatedStyle,
       ]}
@@ -49,21 +49,13 @@ export function FloatingThemeButton() {
 }
 
 const styles = StyleSheet.create({
-  fab: {
-    position: "absolute",
-    bottom: 155,
-    right: 30,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  button: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-    zIndex: 999,
+    marginLeft: 4,
   },
 });
