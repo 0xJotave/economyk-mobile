@@ -49,7 +49,7 @@ export function CategoryModals({
           style={styles.overlay}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            behavior="padding"
             style={styles.overlayKeyboard}
           >
             <View style={styles.popup}>
@@ -96,7 +96,7 @@ export function CategoryModals({
           style={styles.overlay}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            behavior="padding"
             style={styles.overlayKeyboard}
           >
             <View style={styles.popup}>
@@ -153,16 +153,18 @@ const getStyles = (COLORS: ThemeColors) =>
       zIndex: 10,
     },
     overlayKeyboard: {
+      flex: 1,
       width: "100%",
       justifyContent: "center",
       alignItems: "center",
+      paddingHorizontal: 20,
+      paddingVertical: 24,
     },
     popup: {
       backgroundColor: COLORS.surface,
       padding: 24,
       borderRadius: 18,
       width: "85%",
-      marginBottom: 100,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,

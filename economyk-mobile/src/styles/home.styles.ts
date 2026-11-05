@@ -404,7 +404,7 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
 
     fab: {
       position: "absolute",
-      bottom: 30,
+      bottom: 80,
       right: 20,
       backgroundColor: COLORS.burgundy,
       width: 58,

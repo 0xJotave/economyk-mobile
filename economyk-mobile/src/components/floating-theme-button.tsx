@@ -51,7 +51,7 @@ export function FloatingThemeButton() {
 const styles = StyleSheet.create({
   fab: {
     position: "absolute",
-    bottom: 100, // Fica logo acima da barra de navegação inferior
+    bottom: 155,
     right: 30,
     width: 44,
     height: 44,

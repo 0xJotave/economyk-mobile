@@ -361,7 +361,7 @@ const getStyles = (COLORS: ThemeColors) =>
     content: {
       padding: 16,
       gap: 8,
-      paddingBottom: 40,
+      paddingBottom: 64,
     },
     label: {
       fontSize: 14,
