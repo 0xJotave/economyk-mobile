@@ -6,6 +6,7 @@ export const reportSchema = z.object({
   totalIncome: z.number().int().nonnegative(),
   totalExpenses: z.number().int().nonnegative(),
   totalSavings: z.number().int().nonnegative(),
+  previousCarryover: z.number().int().nonnegative().optional(),
 
   expensesByCategory: z.array(
     z.object({

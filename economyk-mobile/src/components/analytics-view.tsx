@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Keyboard } from "react-native";
 import type { Transaction } from "@/types/transaction";
 import { formatBRL } from "@/utils/format";
 import { calculateAnalyticsSummary } from "@/utils/analytics-summary";
+import { calculateFinancialSummary } from "@/utils/financial-summary";
 import { SpendingChart } from "./analytics/spending-chart";
 import { FinancialSummary } from "./analytics/financial-summary";
 import { AIFinancialReport } from "./analytics/ai-financial-report";
@@ -32,6 +33,7 @@ export default function AnalyticsView({
 
   const { totalIncome, totalExpense, totalSavings, sortedCategories } =
     calculateAnalyticsSummary(transactions, month);
+  const { previousCarryover } = calculateFinancialSummary(transactions, month);
 
   return (
     <ScrollView
@@ -95,6 +97,7 @@ export default function AnalyticsView({
           totalIncome,
           totalExpenses: totalExpense,
           totalSavings,
+          ...(previousCarryover > 0 ? { previousCarryover } : {}),
           expensesByCategory: sortedCategories.map(([category, amount]) => ({
             category,
             amount,

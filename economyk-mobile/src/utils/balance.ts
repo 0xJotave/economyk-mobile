@@ -9,6 +9,9 @@ export default function calculateBalance(
 
   return {
     remainingAmount: summary.remainingAmount,
+    monthlyResult: summary.monthlyResult,
+    previousCarryover: summary.previousCarryover,
+    totalAvailable: summary.totalAvailable,
     unconfirmedCount: summary.unconfirmedCount,
     unconfirmedItems: summary.unconfirmedItems,
   };
