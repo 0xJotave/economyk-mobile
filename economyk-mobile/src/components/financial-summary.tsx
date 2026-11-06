@@ -1,6 +1,6 @@
 import { View, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import calculateBalance from "@/utils/balance";
+import type calculateBalance from "@/utils/balance";
 import { formatBRL } from "@/utils/format";
 import { getHomeStyles } from "@/styles/home.styles";
 import { useThemeColors } from "@/styles/theme";

@@ -9,11 +9,10 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { useCategories } from "@/hooks/use-categories";
 
 import { HomeTabs } from "@/components/home-tabs";
-import type { ActiveTab } from "@/components/home-tabs";
+import type { ActiveTab, FilterType } from "@/components/home-tabs";
 import { MonthNavigation } from "@/components/month-navigation";
 import { FinancialSummary } from "@/components/financial-summary";
 import { TransactionsContent } from "@/components/transactions-content";
-import type { FilterType } from "@/components/transactions-content";
 
 import TransactionModal from "@/components/transaction-modal";
 import { SettingsModal } from "@/components/settings-modal";

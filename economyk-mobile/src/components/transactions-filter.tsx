@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   TouchableOpacity,
@@ -6,9 +5,9 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
-import { useThemeColors, ThemeColors } from "@/styles/theme";
-
-type FilterType = "all" | "income" | "expense";
+import { useThemeColors } from "@/styles/theme";
+import type { ThemeColors } from "@/styles/theme";
+import type { FilterType } from "./home-tabs";
 
 const FILTER_OPTIONS: { type: FilterType; label: string }[] = [
   { type: "all", label: "Todas" },

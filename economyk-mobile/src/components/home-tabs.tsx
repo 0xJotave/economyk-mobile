@@ -5,6 +5,7 @@ import { useThemeColors } from "@/styles/theme";
 import { SettingsButton } from "./settings-button";
 
 export type ActiveTab = "transactions" | "analytics";
+export type FilterType = "all" | "income" | "expense";
 
 interface HomeTabsProps {
   activeTab: ActiveTab;

@@ -1,14 +1,12 @@
 import { View, FlatList, Text } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Transaction } from "@/types/transaction";
+import type { Transaction } from "@/types/transaction";
+import type { ActiveTab, FilterType } from "./home-tabs";
 import AnalyticsView from "./analytics-view";
 import { TransactionItem } from "./transaction-item";
 import { TransactionsFilter } from "./transactions-filter";
 import { getHomeStyles } from "@/styles/home.styles";
 import { useThemeColors } from "@/styles/theme";
-
-export type FilterType = "all" | "income" | "expense";
-type ActiveTab = "transactions" | "analytics";
 
 interface TransactionsContentProps {
   activeTab: ActiveTab;
