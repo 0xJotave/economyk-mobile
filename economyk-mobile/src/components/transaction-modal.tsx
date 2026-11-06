@@ -1,13 +1,8 @@
-import {
-  NewTransaction,
-  Transaction,
-  TransactionType,
-} from "@/types/transaction";
-import { useEffect, useState } from "react";
+import { NewTransaction, Transaction } from "@/types/transaction";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   SafeAreaView,
   Modal,
@@ -15,27 +10,26 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { typesLabel } from "@/utils/labels";
-import { formatBRL } from "@/utils/format";
 import * as Haptics from "expo-haptics";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { CategoryModals } from "./category-modals";
-import { Chip } from "./chip";
 import { TransactionOptions } from "./transaction-options";
+import { TransactionForm } from "./transaction-form";
 import { useThemeColors, ThemeColors } from "@/styles/theme";
 
 interface TransactionModalProps {
   visible: boolean;
   categories: string[];
   onClose: () => void;
-  onSave: (data: NewTransaction) => void;
-  onAddCategory: (name: string) => void;
-  onDeleteCategory: (name: string) => void;
-  onEditCategory: (oldCategoryName: string, newCategoryName: string) => void;
+  onSave: (data: NewTransaction) => Promise<void>;
+  onAddCategory: (name: string) => Promise<boolean>;
+  onDeleteCategory: (name: string) => Promise<boolean>;
+  onEditCategory: (
+    oldCategoryName: string,
+    newCategoryName: string,
+  ) => Promise<boolean>;
   transactionToEdit: Transaction | null;
 }
-
-const transactionTypes = Object.keys(typesLabel) as TransactionType[];
 
 export default function TransactionModal({
   visible,
@@ -50,36 +44,35 @@ export default function TransactionModal({
   const COLORS = useThemeColors();
   const styles = getStyles(COLORS);
 
-  const [name, setName] = useState<string>("");
-  const [priceCents, setPriceCents] = useState<number>(0);
-  const [type, setType] = useState<TransactionType>("expense");
+  const [name, setName] = useState("");
+  const [priceCents, setPriceCents] = useState(0);
+  const [type, setType] = useState<Transaction["type"]>("expense");
   const [category, setCategory] = useState<string | null>(null);
   const [isFixed, setIsFixed] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(true);
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [totalInstallments, setTotalInstallments] = useState(2);
+
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryToEdit, setCategoryToEdit] = useState<string | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [totalInstallments, setTotalInstallments] = useState<number>(2);
 
   const [renderModal, setRenderModal] = useState(visible);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
-  useEffect(() => {
-    if (visible) {
-      setRenderModal(true);
-    } else {
-      const timer = setTimeout(() => setRenderModal(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
+  const startSubmitting = () => {
+    if (isSubmittingRef.current) return false;
 
-  const isPriceValid = priceCents > 0;
-  const isValid = name.trim() !== "" && isPriceValid && category !== null;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    return true;
+  };
 
-  const handlePriceChange = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 9);
-    setPriceCents(Number(digits));
+  const finishSubmitting = () => {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
   };
 
   const resetForm = () => {
@@ -93,73 +86,128 @@ export default function TransactionModal({
     setTotalInstallments(2);
     setIsCreatingCategory(false);
     setNewCategoryName("");
+    setCategoryToEdit(null);
+    setEditedCategoryName("");
   };
 
   useEffect(() => {
-    if (!visible) return;
-    if (transactionToEdit) {
-      setName(transactionToEdit.name);
-      setPriceCents(transactionToEdit.price);
-      setType(transactionToEdit.type);
-      setCategory(transactionToEdit.category);
-      setIsFixed(transactionToEdit.isFixed);
-      setIsConfirmed(transactionToEdit.isConfirmed);
-
-      const isAlreadyInstallment = !!transactionToEdit.installmentGroupId;
-      setIsInstallment(isAlreadyInstallment);
-      setTotalInstallments(transactionToEdit.totalInstallments || 2);
-
-      setIsCreatingCategory(false);
-      setNewCategoryName("");
-    } else {
-      resetForm();
+    if (visible) {
+      setRenderModal(true);
+      return;
     }
+
+    const timer = setTimeout(() => setRenderModal(false), 300);
+
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (!transactionToEdit) {
+      resetForm();
+      return;
+    }
+
+    setName(transactionToEdit.name);
+    setPriceCents(transactionToEdit.price);
+    setType(transactionToEdit.type);
+    setCategory(transactionToEdit.category);
+    setIsFixed(transactionToEdit.isFixed);
+    setIsConfirmed(transactionToEdit.isConfirmed);
+    setIsInstallment(transactionToEdit.installmentGroupId != null);
+    setTotalInstallments(transactionToEdit.totalInstallments || 2);
+    setIsCreatingCategory(false);
+    setNewCategoryName("");
+    setCategoryToEdit(null);
+    setEditedCategoryName("");
   }, [visible, transactionToEdit]);
 
+  const isValid = name.trim() !== "" && priceCents > 0 && category !== null;
+
   const handleClose = () => {
+    if (isSubmittingRef.current) return;
+
     resetForm();
     onClose();
   };
 
-  const handleCreateCategory = () => {
+  const handleCreateCategory = async () => {
     const trimmed = newCategoryName.trim();
-    if (trimmed === "") return;
-    const existing = categories.find(
-      (c) => c.toLowerCase() === trimmed.toLowerCase(),
-    );
-    if (existing) {
-      setCategory(existing);
-    } else {
-      onAddCategory(trimmed);
+
+    if (!trimmed || !startSubmitting()) return;
+
+    try {
+      if (!(await onAddCategory(trimmed))) return;
+
       setCategory(trimmed);
+      setNewCategoryName("");
+      setIsCreatingCategory(false);
+    } catch (error) {
+      Alert.alert(
+        "Erro ao criar categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
     }
-    setNewCategoryName("");
-    setIsCreatingCategory(false);
   };
 
-  const handleSave = () => {
-    if (!isValid || category === null) return;
-    onSave({
-      name: name.trim(),
-      price: priceCents,
-      category,
-      type,
-      isFixed,
-      isConfirmed,
-      installmentNumber:
-        transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
-      totalInstallments: isInstallment ? totalInstallments : undefined,
-      installmentGroupId: transactionToEdit?.installmentGroupId,
-    });
-    resetForm();
+  const handleEditCategory = async () => {
+    const trimmed = editedCategoryName.trim();
+
+    if (!trimmed || !categoryToEdit || !startSubmitting()) return;
+
+    try {
+      if (!(await onEditCategory(categoryToEdit, trimmed))) return;
+
+      if (category === categoryToEdit) {
+        setCategory(trimmed);
+      }
+
+      setCategoryToEdit(null);
+      setEditedCategoryName("");
+    } catch (error) {
+      Alert.alert(
+        "Erro ao renomear categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível renomear a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
+    }
+  };
+
+  const handleDeleteCategory = async (categoryName: string) => {
+    if (!startSubmitting()) return;
+
+    try {
+      if (!(await onDeleteCategory(categoryName))) return;
+
+      if (category === categoryName) setCategory(null);
+    } catch (error) {
+      Alert.alert(
+        "Erro ao apagar categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível apagar a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
+    }
   };
 
   const handleCategoryLongPress = async (categoryName: string) => {
+    if (isSubmittingRef.current) return;
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (error) {
-      console.log("Haptics não suportado neste ambiente", error);
-    }
+    } catch {}
+
+    if (isSubmittingRef.current) return;
 
     Alert.alert(
       "Gerir Categoria",
@@ -169,14 +217,13 @@ export default function TransactionModal({
         {
           text: "Apagar",
           style: "destructive",
-          onPress: () => {
-            if (category === categoryName) setCategory(null);
-            onDeleteCategory(categoryName);
-          },
+          onPress: () => handleDeleteCategory(categoryName),
         },
         {
           text: "Renomear",
           onPress: () => {
+            if (isSubmittingRef.current) return;
+
             setCategoryToEdit(categoryName);
             setEditedCategoryName(categoryName);
           },
@@ -185,10 +232,40 @@ export default function TransactionModal({
     );
   };
 
+  const handleSave = async () => {
+    if (!isValid || category === null || !startSubmitting()) return;
+
+    try {
+      await onSave({
+        name: name.trim(),
+        price: priceCents,
+        category,
+        type,
+        isFixed,
+        isConfirmed,
+        installmentNumber:
+          transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
+        totalInstallments: isInstallment ? totalInstallments : undefined,
+        installmentGroupId: transactionToEdit?.installmentGroupId,
+      });
+
+      resetForm();
+    } catch (error) {
+      Alert.alert(
+        "Erro ao salvar transação",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a transação. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
+    }
+  };
+
   return (
     <Modal
       visible={renderModal}
-      transparent={true}
+      transparent
       animationType="none"
       onRequestClose={handleClose}
     >
@@ -202,10 +279,9 @@ export default function TransactionModal({
             <View style={styles.modalContainer}>
               <View style={styles.header}>
                 <Text style={styles.title}>
-                  {transactionToEdit != null
-                    ? "Editar transação"
-                    : "Nova Transação"}
+                  {transactionToEdit ? "Editar transação" : "Nova Transação"}
                 </Text>
+
                 <TouchableOpacity onPress={handleClose}>
                   <Text style={styles.closeButtonText}>Fechar</Text>
                 </TouchableOpacity>
@@ -215,60 +291,23 @@ export default function TransactionModal({
                 contentContainerStyle={styles.content}
                 keyboardShouldPersistTaps="handled"
               >
-                <Text style={styles.label}>Nome</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Supermercado"
-                  placeholderTextColor={COLORS.textSecondary}
-                  value={name}
-                  onChangeText={setName}
-                  maxLength={40}
+                <TransactionForm
+                  name={name}
+                  setName={setName}
+                  priceCents={priceCents}
+                  setPriceCents={setPriceCents}
+                  type={type}
+                  setType={setType}
+                  category={category}
+                  setCategory={setCategory}
+                  categories={categories}
+                  isCreatingCategory={isCreatingCategory}
+                  onCreateCategory={() => {
+                    if (!isSubmittingRef.current) setIsCreatingCategory(true);
+                  }}
+                  onCategoryLongPress={handleCategoryLongPress}
+                  styles={styles}
                 />
-
-                <Text style={styles.label}>Valor (R$)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0,00"
-                  placeholderTextColor={COLORS.textSecondary}
-                  value={priceCents === 0 ? "" : formatBRL(priceCents / 100)}
-                  onChangeText={handlePriceChange}
-                  keyboardType="number-pad"
-                />
-                {priceCents !== 0 && !isPriceValid && (
-                  <Text style={styles.error}>
-                    Digite um valor maior que zero
-                  </Text>
-                )}
-
-                <Text style={styles.label}>Tipo</Text>
-                <View style={styles.chipRow}>
-                  {transactionTypes.map((t) => (
-                    <Chip
-                      key={t}
-                      label={typesLabel[t]}
-                      selected={type === t}
-                      onPress={() => setType(t)}
-                    />
-                  ))}
-                </View>
-
-                <Text style={styles.label}>Categoria</Text>
-                <View style={styles.chipRow}>
-                  {categories.map((c) => (
-                    <Chip
-                      key={c}
-                      label={c}
-                      selected={category === c}
-                      onPress={() => setCategory(c)}
-                      onLongPress={() => handleCategoryLongPress(c)}
-                    />
-                  ))}
-                  <Chip
-                    label="+ Nova"
-                    selected={isCreatingCategory}
-                    onPress={() => setIsCreatingCategory(true)}
-                  />
-                </View>
 
                 <TransactionOptions
                   isFixed={isFixed}
@@ -288,7 +327,7 @@ export default function TransactionModal({
                     !isValid && styles.saveButtonDisabled,
                   ]}
                   onPress={handleSave}
-                  disabled={!isValid}
+                  disabled={!isValid || isSubmitting}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.saveButtonText}>Salvar</Text>
@@ -297,26 +336,27 @@ export default function TransactionModal({
             </View>
 
             <CategoryModals
+              isSubmitting={isSubmitting}
               isCreatingCategory={isCreatingCategory}
               newCategoryName={newCategoryName}
               setNewCategoryName={setNewCategoryName}
               onCloseCreate={() => {
+                if (isSubmittingRef.current) return;
+
                 setIsCreatingCategory(false);
-                newCategoryName !== "" && setNewCategoryName("");
+                setNewCategoryName("");
               }}
               onCreate={handleCreateCategory}
               categoryToEdit={categoryToEdit}
               editedCategoryName={editedCategoryName}
               setEditedCategoryName={setEditedCategoryName}
-              onCloseEdit={() => setCategoryToEdit(null)}
-              onEdit={() => {
-                if (editedCategoryName.trim() && categoryToEdit) {
-                  onEditCategory(categoryToEdit, editedCategoryName.trim());
-                  if (category === categoryToEdit)
-                    setCategory(editedCategoryName.trim());
-                }
+              onCloseEdit={() => {
+                if (isSubmittingRef.current) return;
+
                 setCategoryToEdit(null);
+                setEditedCategoryName("");
               }}
+              onEdit={handleEditCategory}
             />
           </SafeAreaView>
         </Animated.View>
@@ -379,11 +419,6 @@ const getStyles = (COLORS: ThemeColors) =>
       fontFamily: "Body Medium",
       fontSize: 15,
       color: COLORS.text,
-    },
-    error: {
-      color: COLORS.expense,
-      fontSize: 12,
-      fontFamily: "Body Medium",
     },
     chipRow: {
       flexDirection: "row",

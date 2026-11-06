@@ -366,7 +366,7 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
     },
 
     fixedBadge: {
-      backgroundColor: COLORS.surfaceMuted,
+      backgroundColor: COLORS.burgundy + "99",
       paddingHorizontal: 7,
       paddingVertical: 3,
       borderRadius: 6,
@@ -374,7 +374,7 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
 
     fixedBadgeText: {
       fontSize: 10,
-      color: COLORS.textSecondary,
+      color: COLORS.cream,
       fontWeight: "700",
     },
 

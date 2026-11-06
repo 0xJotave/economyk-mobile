@@ -1,41 +1,44 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# EconomyK Mobile
 
-## Expo has changed — do not trust your training data
+App pessoal de controle financeiro (React Native, Expo, TypeScript, Expo Router, expo-sqlite + Drizzle).
+Trabalhe somente dentro de `economyk-mobile`. Não leia nem altere `../economyk-api`.
+Responda sempre em português brasileiro, de forma objetiva.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+## Expo muda a cada SDK
+Antes de mexer em qualquer API do Expo, EAS ou React Native:
+1. Veja a versão do `expo` no `package.json`.
+2. Consulte https://docs.expo.dev/versions/v<major>.0.0/ ou https://docs.expo.dev/llms.txt
+Nunca responda de memória sobre APIs do Expo.
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+## Comandos
+- `npx expo install <pacote>` para instalar (nunca npm/yarn add)
+- `npx expo lint` e `npx tsc --noEmit` antes de dar qualquer tarefa como concluída
+- Não inicie nem reinicie o Expo (`expo start`) sem eu pedir
 
-## Commands
+## Rotas
+Expo Router. Rotas ficam só em `src/app/`. Componentes, hooks e utils ficam fora dela.
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+## Regras de negócio que NÃO podem quebrar
+- Parcelas: `installmentNumber`, `totalInstallments`, `installmentGroupId`. Bug já corrigido: ao editar parcelada para comum, a transação continuava parcelada. Ao remover o parcelamento, limpar todos os metadados.
+- Fixas: `isFixed`, `fixedGroupId` e a lógica de `fixedGroupClosures` (em `src/db/schema.ts` e nos serviços). Não remover nem simplificar. Evitar duplicatas ao gerar meses futuros e preservar o histórico dos meses anteriores.
+- Fixa não é transação comum, mesmo compartilhando atributos.
+- Categorias: sem vazias, sem duplicadas, renomear atualiza as transações, não excluir categoria em uso.
+- `src/utils/balance.ts` é camada de compatibilidade: não remover.
+- `src/components/financial-summary.tsx` (home) e `src/components/analytics/financial-summary.tsx` são componentes diferentes.
+- Não invente fórmulas financeiras novas.
 
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
+## Proibido sem minha autorização
+- Mexer no banco (nome, tabelas, colunas, IDs, migrações) ou apagar dados.
+- Mexer em `src/services/backup-service.ts` ou na comunicação com a API (`src/config/api.ts`, `src/services/api-wakeup.ts`, `src/services/financial-report*.ts`).
+- Excluir arquivos: liste os candidatos com justificativa e espere minha aprovação.
+- Arquivos `*.web.tsx` e `*.web.ts` não são código morto (o Metro escolhe por plataforma).
+- Não excluir `android/`, assets do `app.json`, config do EAS, arquivos de declaração `.d.ts`.
+- Comandos destrutivos (`git reset --hard`, `git clean`, etc.) e descartar mudanças da branch.
+- Fazer commit: quem commita sou eu.
+- Implementar web nova, Supabase, login, sincronização ou backend. Isso é planejado à parte.
 
-Run lint and typecheck before declaring any task done.
-
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+## Estilo
+- Não mudar visual (cores, espaçamento, animações, navegação) nem comportamento de formulários.
+- Código simples, tipado, sem `any`, sem dependências novas, sem abstrações sem benefício.
+- Remover comentários óbvios nos arquivos que você editar, mantendo os que explicam decisões não óbvias.
+- Não afirme que algo funciona sem verificar. Diga o que foi verificado e o que depende de teste manual no aparelho.

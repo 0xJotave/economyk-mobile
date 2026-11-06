@@ -1,36 +1,32 @@
-import {
-  Alert,
-  FlatList,
-  Text,
-  View,
-  TouchableOpacity,
-  Keyboard,
-} from "react-native";
+import { Alert, Keyboard, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import calculateBalance from "@/utils/balance";
-import { formatBRL } from "@/utils/format";
 import { useState } from "react";
-import { Transaction } from "@/types/transaction";
-import TransactionModal from "@/components/transaction-modal";
-import AnalyticsView from "@/components/analytics-view";
-import { TransactionItem } from "@/components/transaction-item";
-import { TransactionsFilter } from "@/components/transactions-filter";
-import { useTransactions } from "@/hooks/use-transactions";
-import { useCategories } from "@/hooks/use-categories";
 import { Feather } from "@expo/vector-icons";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import type { Transaction } from "@/types/transaction";
+import { useTransactions } from "@/hooks/use-transactions";
+import { useCategories } from "@/hooks/use-categories";
+
+import { HomeTabs } from "@/components/home-tabs";
+import type { ActiveTab, FilterType } from "@/components/home-tabs";
+import { MonthNavigation } from "@/components/month-navigation";
+import { FinancialSummary } from "@/components/financial-summary";
+import { TransactionsContent } from "@/components/transactions-content";
+
+import TransactionModal from "@/components/transaction-modal";
+import { SettingsModal } from "@/components/settings-modal";
+
 import { getHomeStyles } from "@/styles/home.styles";
 import { useThemeColors } from "@/styles/theme";
-import { SettingsButton } from "@/components/settings-button";
-import { SettingsModal } from "@/components/settings-modal";
+
+import { calculateFinancialSummary } from "@/utils/financial-summary";
+
 import {
   exportBackup,
   selectBackup,
   restoreBackup,
 } from "@/services/backup-service";
-
-type FilterType = "all" | "income" | "expense";
-type ActiveTab = "transactions" | "analytics";
 
 export default function HomeScreen() {
   const COLORS = useThemeColors();
@@ -58,36 +54,32 @@ export default function HomeScreen() {
     handleAddCategory,
     handleDeleteCategory,
     handleEditCategory,
-  } = useCategories(loadData);
+  } = useCategories({ loadTransactionsData: loadData });
 
   const [isModalOpen, setModalOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
-
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
 
-  const balance = calculateBalance(transactions, month);
-  const monthItems = transactions.filter((item) => item.month === month);
+  const financialSummary = calculateFinancialSummary(transactions, month);
 
-  const filteredItems = monthItems.filter((item) => {
+  const balance = {
+    remainingAmount: financialSummary.remainingAmount,
+    unconfirmedCount: financialSummary.unconfirmedCount,
+    unconfirmedItems: financialSummary.unconfirmedItems,
+  };
+
+  const filteredItems = financialSummary.monthTransactions.filter((item) => {
     const matchesType =
-      selectedFilter === "all" ? true : item.type === selectedFilter;
+      selectedFilter === "all" || item.type === selectedFilter;
 
     const matchesCategory =
-      selectedCategory === "Todas" || selectedCategory === null
-        ? true
-        : item.category === selectedCategory;
+      selectedCategory === "Todas" ||
+      selectedCategory === null ||
+      item.category === selectedCategory;
 
     return matchesType && matchesCategory;
   });
-
-  const incomes = monthItems
-    .filter((transaction) => transaction.type === "income")
-    .reduce((acc, curr) => acc + curr.price, 0);
-
-  const expenses = monthItems
-    .filter((transaction) => transaction.type === "expense")
-    .reduce((acc, curr) => acc + curr.price, 0);
 
   const openNew = () => {
     Keyboard.dismiss();
@@ -207,217 +199,39 @@ export default function HomeScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* SWITCH SUPERIOR */}
-        <View style={styles.topSwitchContainer}>
-          <TouchableOpacity
-            style={[
-              styles.switchButton,
-              activeTab === "transactions" && styles.switchButtonActive,
-            ]}
-            onPress={() => setActiveTab("transactions")}
-          >
-            <Feather
-              name="list"
-              size={16}
-              color={
-                activeTab === "transactions"
-                  ? COLORS.white
-                  : COLORS.textSecondary
-              }
-            />
-            <Text
-              style={[
-                styles.switchText,
-                activeTab === "transactions" && styles.switchTextActive,
-              ]}
-            >
-              Transações
-            </Text>
-          </TouchableOpacity>
+        <HomeTabs
+          activeTab={activeTab}
+          onChangeTab={setActiveTab}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
 
-          <TouchableOpacity
-            style={[
-              styles.switchButton,
-              activeTab === "analytics" && styles.switchButtonActive,
-            ]}
-            onPress={() => setActiveTab("analytics")}
-          >
-            <Feather
-              name="pie-chart"
-              size={16}
-              color={
-                activeTab === "analytics" ? COLORS.white : COLORS.textSecondary
-              }
-            />
-            <Text
-              style={[
-                styles.switchText,
-                activeTab === "analytics" && styles.switchTextActive,
-              ]}
-            >
-              Estatísticas
-            </Text>
-          </TouchableOpacity>
+        <MonthNavigation
+          month={month}
+          isChangingMonth={isChangingMonth}
+          onChangeMonth={handleMonthChange}
+        />
 
-          <SettingsButton onPress={() => setSettingsOpen(true)} />
-        </View>
-
-        {/* HEADER / MÊS */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => handleMonthChange(-1)}
-            style={styles.monthButton}
-            disabled={isChangingMonth}
-          >
-            <Feather
-              name="chevron-left"
-              size={24}
-              color={isChangingMonth ? COLORS.surfaceMuted : COLORS.text}
-            />
-          </TouchableOpacity>
-
-          <View style={styles.monthTitleContainer}>
-            {(() => {
-              const [year, monthNum] = month.split("-");
-              const monthsShort = [
-                "",
-                "Jan",
-                "Fev",
-                "Mar",
-                "Abr",
-                "Mai",
-                "Jun",
-                "Jul",
-                "Ago",
-                "Set",
-                "Out",
-                "Nov",
-                "Dez",
-              ];
-              const shortName = monthsShort[Number(monthNum)] || "Mês";
-
-              return (
-                <>
-                  <Text style={styles.monthText}>{shortName}</Text>
-                  <Text style={styles.yearText}>{`${monthNum}-${year}`}</Text>
-                </>
-              );
-            })()}
-          </View>
-
-          <TouchableOpacity
-            onPress={() => handleMonthChange(1)}
-            style={styles.monthButton}
-            disabled={isChangingMonth}
-          >
-            <Feather
-              name="chevron-right"
-              size={24}
-              color={isChangingMonth ? COLORS.surfaceMuted : COLORS.text}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.dashboard}>
-          <View
-            style={[
-              styles.mainCard,
-              balance.remainingAmount < 0 && styles.mainCardNegative,
-            ]}
-          >
-            <Text style={styles.cardLabelVisible}>Saldo Atual</Text>
-            <Text style={styles.mainCardValue}>
-              {formatBRL(balance.remainingAmount / 100)}
-            </Text>
-          </View>
-
-          {activeTab === "transactions" && (
-            <View style={styles.subCardsRow}>
-              <View style={styles.subCard}>
-                <Feather
-                  name="arrow-up-circle"
-                  size={20}
-                  color={COLORS.income}
-                />
-                <View style={{ marginLeft: 8 }}>
-                  <Text style={styles.subCardLabel}>Receitas</Text>
-                  <Text style={[styles.subCardValue, { color: COLORS.income }]}>
-                    {formatBRL(incomes / 100)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.subCard}>
-                <Feather
-                  name="arrow-down-circle"
-                  size={20}
-                  color={COLORS.expense}
-                />
-                <View style={{ marginLeft: 8 }}>
-                  <Text style={styles.subCardLabel}>Despesas</Text>
-                  <Text
-                    style={[styles.subCardValue, { color: COLORS.expense }]}
-                  >
-                    {formatBRL(expenses / 100)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {activeTab === "transactions" && balance.unconfirmedCount > 0 && (
-          <View style={styles.unconfirmedAlert}>
-            <Feather name="alert-circle" size={16} color={COLORS.warning} />
-            <Text style={styles.unconfirmedText}>
-              Você tem {balance.unconfirmedCount} transações não confirmadas.
-            </Text>
-          </View>
-        )}
+        <FinancialSummary
+          balance={balance}
+          incomes={financialSummary.income}
+          expenses={financialSummary.expenses}
+          activeTab={activeTab}
+        />
 
         <View style={styles.mainContent}>
-          {activeTab === "transactions" ? (
-            <>
-              <TransactionsFilter
-                selectedFilter={selectedFilter}
-                setSelectedFilter={setSelectedFilter}
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                categories={categories}
-              />
-
-              <View style={styles.listContainer}>
-                <FlatList
-                  data={filteredItems}
-                  keyExtractor={(item) => String(item.id)}
-                  showsVerticalScrollIndicator={false}
-                  nestedScrollEnabled
-                  keyboardShouldPersistTaps="handled"
-                  keyboardDismissMode="on-drag"
-                  contentContainerStyle={{ paddingBottom: 120, flexGrow: 1 }}
-                  renderItem={({ item }) => (
-                    <TransactionItem
-                      item={item}
-                      onEdit={openEdit}
-                      onDelete={() => confirmRemoveTransaction(item)}
-                    />
-                  )}
-                  ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                      <Feather name="inbox" size={48} color={COLORS.border} />
-                      <Text style={styles.emptyStateText}>
-                        Nenhuma transação encontrada
-                      </Text>
-                    </View>
-                  }
-                />
-              </View>
-            </>
-          ) : (
-            <View style={styles.analyticsContainer}>
-              <AnalyticsView transactions={transactions} month={month} />
-            </View>
-          )}
+          <TransactionsContent
+            activeTab={activeTab}
+            transactions={transactions}
+            month={month}
+            filteredItems={filteredItems}
+            categories={categories}
+            selectedFilter={selectedFilter}
+            setSelectedFilter={setSelectedFilter}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            onEdit={openEdit}
+            onDelete={confirmRemoveTransaction}
+          />
         </View>
 
         {activeTab === "transactions" && (
