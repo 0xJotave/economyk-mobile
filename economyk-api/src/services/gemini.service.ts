@@ -54,7 +54,24 @@ export async function generateFinancialReport(
          "dinheiro restante" ou "valor não destinado".
          NÃO o confunda com saldo bancário ou saldo disponível em conta.
 
-      5. EXEMPLO:
+      5. SOBRA DO MÊS ANTERIOR (previousCarryover):
+         Campo opcional em centavos que representa a reserva positiva
+         vinda exclusivamente da sobra estimada do mês anterior.
+         Essa sobra já desconta despesas e dinheiro guardado de M-1.
+         Se o campo estiver ausente ou for zero, considere a sobra anterior zero.
+         Não é receita do mês atual nem dinheiro guardado no mês atual.
+         Não some novamente reservas de meses anteriores a M-1.
+
+         Resultado do mês atual = Receitas - Despesas.
+         Total disponível estimado = Resultado do mês atual + previousCarryover.
+         Esse total é anterior à destinação para guardar no mês atual.
+         Para avaliar o valor não destinado após guardar, use:
+         Sobra estimada do mês + previousCarryover.
+         Não confunda nenhum desses valores com saldo bancário confirmado.
+         Considere essa reserva como um respiro financeiro, sem ocultar
+         um resultado negativo do mês atual ou tratá-la como renda recorrente.
+
+      6. EXEMPLO:
          Receita: R$ 3.500,00
          Despesas: R$ 30,00
          Dinheiro guardado: R$ 1.000,00
@@ -71,6 +88,10 @@ export async function generateFinancialReport(
       3. Aponte oportunidades de economia quando realmente existirem.
       4. Destaque pontos positivos e pontos de atenção.
       5. Dê até três dicas práticas e personalizadas.
+      6. Quando previousCarryover for positivo, destaque a sobra do mês
+         anterior separadamente do resultado do mês atual e explique seu
+         impacto no total disponível estimado e no valor após guardar.
+         Se não houver sobra positiva, não apresente uma reserva anterior.
 
       CUIDADOS IMPORTANTES:
 

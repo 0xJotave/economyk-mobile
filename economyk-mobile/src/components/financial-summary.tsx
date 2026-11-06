@@ -28,12 +28,20 @@ export function FinancialSummary({
         <View
           style={[
             styles.mainCard,
-            balance.remainingAmount < 0 && styles.mainCardNegative,
+            balance.totalAvailable < 0 && styles.mainCardNegative,
           ]}
         >
-          <Text style={styles.cardLabelVisible}>Saldo Atual</Text>
+          <Text style={styles.cardLabelVisible}>
+            Resultado do Mês Atual: {formatBRL(balance.monthlyResult / 100)}
+          </Text>
+          {balance.previousCarryover > 0 && (
+            <Text style={styles.cardLabelVisible}>
+              Sobra do Mês Anterior: {formatBRL(balance.previousCarryover / 100)}
+            </Text>
+          )}
+          <Text style={styles.cardLabelVisible}>Total Disponível</Text>
           <Text style={styles.mainCardValue}>
-            {formatBRL(balance.remainingAmount / 100)}
+            {formatBRL(balance.totalAvailable / 100)}
           </Text>
         </View>
 

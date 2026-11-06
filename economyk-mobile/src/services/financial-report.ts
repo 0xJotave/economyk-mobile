@@ -6,6 +6,7 @@ export interface FinancialReportInput {
   totalIncome: number;
   totalExpenses: number;
   totalSavings: number;
+  previousCarryover?: number;
   expensesByCategory: {
     category: string;
     amount: number;
@@ -35,6 +36,13 @@ export async function generateFinancialReport(
   data: FinancialReportInput,
 ): Promise<string> {
   const deviceId = await getDeviceId();
+  const { previousCarryover, ...monthlyData } = data;
+  const payload: FinancialReportInput = {
+    ...monthlyData,
+    ...(previousCarryover !== undefined && previousCarryover > 0
+      ? { previousCarryover }
+      : {}),
+  };
 
   const response = await fetch(`${API_URL}/reports/generate`, {
     method: "POST",
@@ -42,7 +50,7 @@ export async function generateFinancialReport(
       "Content-Type": "application/json",
       "x-device-id": deviceId,
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 
   const result = await response.json();

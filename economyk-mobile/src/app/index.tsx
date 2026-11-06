@@ -65,6 +65,9 @@ export default function HomeScreen() {
 
   const balance = {
     remainingAmount: financialSummary.remainingAmount,
+    monthlyResult: financialSummary.monthlyResult,
+    previousCarryover: financialSummary.previousCarryover,
+    totalAvailable: financialSummary.totalAvailable,
     unconfirmedCount: financialSummary.unconfirmedCount,
     unconfirmedItems: financialSummary.unconfirmedItems,
   };
