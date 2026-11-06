@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   categories as categoriesTable,
   transactions as transactionsTable,
@@ -21,6 +21,7 @@ const DEFAULT_CATEGORIES = [
 
 export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const isMutatingRef = useRef(false);
 
   const loadCategories = useCallback(async () => {
     const loadedCategories = await db.select().from(categoriesTable);
@@ -35,26 +36,35 @@ export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
   }, [loadCategories]);
 
   const handleAddCategory = useCallback(
-    async (name: string) => {
-      const trimmed = name.trim();
+    async (name: string): Promise<boolean> => {
+      if (isMutatingRef.current) return false;
 
-      if (!trimmed) return;
+      isMutatingRef.current = true;
 
-      const exists = categories.some(
-        (category) => category.toLowerCase() === trimmed.toLowerCase(),
-      );
+      try {
+        const trimmed = name.trim();
 
-      if (exists) {
-        Alert.alert(
-          "Categoria existente",
-          "Essa categoria já está cadastrada.",
+        if (!trimmed) return false;
+
+        const exists = categories.some(
+          (category) => category.toLowerCase() === trimmed.toLowerCase(),
         );
-        return;
+
+        if (exists) {
+          Alert.alert(
+            "Categoria existente",
+            "Essa categoria já está cadastrada.",
+          );
+          return false;
+        }
+
+        await db.insert(categoriesTable).values({ name: trimmed });
+
+        setCategories((previous) => [...previous, trimmed]);
+        return true;
+      } finally {
+        isMutatingRef.current = false;
       }
-
-      await db.insert(categoriesTable).values({ name: trimmed });
-
-      setCategories((previous) => [...previous, trimmed]);
     },
     [categories],
   );
@@ -64,31 +74,41 @@ export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
       categoryName: string,
       selectedCategory: string | null,
       setSelectedCategory: (category: string | null) => void,
-    ) => {
-      const matchingTransactions = await db
-        .select({ id: transactionsTable.id })
-        .from(transactionsTable)
-        .where(eq(transactionsTable.category, categoryName))
-        .limit(1);
+    ): Promise<boolean> => {
+      if (isMutatingRef.current) return false;
 
-      if (matchingTransactions.length > 0) {
-        Alert.alert(
-          "Não é possível apagar",
-          `A categoria "${categoryName}" possui transações vinculadas. Remova ou altere essas transações primeiro.`,
+      isMutatingRef.current = true;
+
+      try {
+        const matchingTransactions = await db
+          .select({ id: transactionsTable.id })
+          .from(transactionsTable)
+          .where(eq(transactionsTable.category, categoryName))
+          .limit(1);
+
+        if (matchingTransactions.length > 0) {
+          Alert.alert(
+            "Não é possível apagar",
+            `A categoria "${categoryName}" possui transações vinculadas. Remova ou altere essas transações primeiro.`,
+          );
+          return false;
+        }
+
+        await db
+          .delete(categoriesTable)
+          .where(eq(categoriesTable.name, categoryName));
+
+        setCategories((previous) =>
+          previous.filter((category) => category !== categoryName),
         );
-        return;
-      }
 
-      await db
-        .delete(categoriesTable)
-        .where(eq(categoriesTable.name, categoryName));
+        if (selectedCategory === categoryName) {
+          setSelectedCategory("Todas");
+        }
 
-      setCategories((previous) =>
-        previous.filter((category) => category !== categoryName),
-      );
-
-      if (selectedCategory === categoryName) {
-        setSelectedCategory("Todas");
+        return true;
+      } finally {
+        isMutatingRef.current = false;
       }
     },
     [],
@@ -100,46 +120,58 @@ export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
       newCategoryName: string,
       selectedCategory: string | null,
       setSelectedCategory: (category: string | null) => void,
-    ) => {
-      const trimmed = newCategoryName.trim();
+    ): Promise<boolean> => {
+      if (isMutatingRef.current) return false;
 
-      if (!trimmed || trimmed === oldCategoryName) return;
+      isMutatingRef.current = true;
 
-      const exists = categories.some(
-        (category) =>
-          category !== oldCategoryName &&
-          category.toLowerCase() === trimmed.toLowerCase(),
-      );
+      try {
+        const trimmed = newCategoryName.trim();
 
-      if (exists) {
-        Alert.alert(
-          "Categoria existente",
-          "Essa categoria já está cadastrada.",
+        if (!trimmed) return false;
+
+        if (trimmed === oldCategoryName) return true;
+
+        const exists = categories.some(
+          (category) =>
+            category !== oldCategoryName &&
+            category.toLowerCase() === trimmed.toLowerCase(),
         );
-        return;
+
+        if (exists) {
+          Alert.alert(
+            "Categoria existente",
+            "Essa categoria já está cadastrada.",
+          );
+          return false;
+        }
+
+        await db
+          .update(categoriesTable)
+          .set({ name: trimmed })
+          .where(eq(categoriesTable.name, oldCategoryName));
+
+        await db
+          .update(transactionsTable)
+          .set({ category: trimmed })
+          .where(eq(transactionsTable.category, oldCategoryName));
+
+        await loadTransactionsData();
+
+        setCategories((previous) =>
+          previous.map((category) =>
+            category === oldCategoryName ? trimmed : category,
+          ),
+        );
+
+        if (selectedCategory === oldCategoryName) {
+          setSelectedCategory(trimmed);
+        }
+
+        return true;
+      } finally {
+        isMutatingRef.current = false;
       }
-
-      await db
-        .update(categoriesTable)
-        .set({ name: trimmed })
-        .where(eq(categoriesTable.name, oldCategoryName));
-
-      await db
-        .update(transactionsTable)
-        .set({ category: trimmed })
-        .where(eq(transactionsTable.category, oldCategoryName));
-
-      setCategories((previous) =>
-        previous.map((category) =>
-          category === oldCategoryName ? trimmed : category,
-        ),
-      );
-
-      if (selectedCategory === oldCategoryName) {
-        setSelectedCategory(trimmed);
-      }
-
-      await loadTransactionsData();
     },
     [categories, loadTransactionsData],
   );

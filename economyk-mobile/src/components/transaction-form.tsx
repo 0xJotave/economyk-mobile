@@ -1,8 +1,9 @@
 import { View, Text, TextInput } from "react-native";
+import type { TextStyle, ViewStyle } from "react-native";
 import { TransactionType } from "@/types/transaction";
 import { typesLabel } from "@/utils/labels";
 import { formatBRL } from "@/utils/format";
-import { useThemeColors, ThemeColors } from "@/styles/theme";
+import { useThemeColors } from "@/styles/theme";
 import { Chip } from "./chip";
 
 interface TransactionFormProps {
@@ -19,9 +20,9 @@ interface TransactionFormProps {
   onCreateCategory: () => void;
   onCategoryLongPress: (category: string) => void;
   styles: {
-    label: object;
-    input: object;
-    chipRow: object;
+    label: TextStyle;
+    input: TextStyle;
+    chipRow: ViewStyle;
   };
 }
 

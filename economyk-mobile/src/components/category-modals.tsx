@@ -1,9 +1,7 @@
-import React from "react";
 import {
   View,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,6 +10,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useThemeColors, ThemeColors } from "@/styles/theme";
 
 interface CategoryModalsProps {
+  isSubmitting: boolean;
   isCreatingCategory: boolean;
   newCategoryName: string;
   setNewCategoryName: (name: string) => void;
@@ -26,6 +25,7 @@ interface CategoryModalsProps {
 }
 
 export function CategoryModals({
+  isSubmitting,
   isCreatingCategory,
   newCategoryName,
   setNewCategoryName,
@@ -68,6 +68,7 @@ export function CategoryModals({
               <View style={styles.popupActions}>
                 <TouchableOpacity
                   onPress={onCloseCreate}
+                  disabled={isSubmitting}
                   style={styles.cancelBtn}
                 >
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -79,7 +80,7 @@ export function CategoryModals({
                     newCategoryName.trim() === "" && styles.saveBtnDisabled,
                   ]}
                   onPress={onCreate}
-                  disabled={newCategoryName.trim() === ""}
+                  disabled={newCategoryName.trim() === "" || isSubmitting}
                 >
                   <Text style={styles.saveBtnText}>Salvar</Text>
                 </TouchableOpacity>
@@ -115,6 +116,7 @@ export function CategoryModals({
               <View style={styles.popupActions}>
                 <TouchableOpacity
                   onPress={onCloseEdit}
+                  disabled={isSubmitting}
                   style={styles.cancelBtn}
                 >
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
@@ -126,7 +128,7 @@ export function CategoryModals({
                     editedCategoryName.trim() === "" && styles.saveBtnDisabled,
                   ]}
                   onPress={onEdit}
-                  disabled={editedCategoryName.trim() === ""}
+                  disabled={editedCategoryName.trim() === "" || isSubmitting}
                 >
                   <Text style={styles.saveBtnText}>Salvar</Text>
                 </TouchableOpacity>

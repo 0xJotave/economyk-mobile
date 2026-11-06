@@ -1,5 +1,5 @@
 import { NewTransaction, Transaction } from "@/types/transaction";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -21,10 +21,13 @@ interface TransactionModalProps {
   visible: boolean;
   categories: string[];
   onClose: () => void;
-  onSave: (data: NewTransaction) => void;
-  onAddCategory: (name: string) => void;
-  onDeleteCategory: (name: string) => void;
-  onEditCategory: (oldCategoryName: string, newCategoryName: string) => void;
+  onSave: (data: NewTransaction) => Promise<void>;
+  onAddCategory: (name: string) => Promise<boolean>;
+  onDeleteCategory: (name: string) => Promise<boolean>;
+  onEditCategory: (
+    oldCategoryName: string,
+    newCategoryName: string,
+  ) => Promise<boolean>;
   transactionToEdit: Transaction | null;
 }
 
@@ -56,6 +59,21 @@ export default function TransactionModal({
   const [editedCategoryName, setEditedCategoryName] = useState("");
 
   const [renderModal, setRenderModal] = useState(visible);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+
+  const startSubmitting = () => {
+    if (isSubmittingRef.current) return false;
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    return true;
+  };
+
+  const finishSubmitting = () => {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+  };
 
   const resetForm = () => {
     setName("");
@@ -108,49 +126,88 @@ export default function TransactionModal({
   const isValid = name.trim() !== "" && priceCents > 0 && category !== null;
 
   const handleClose = () => {
+    if (isSubmittingRef.current) return;
+
     resetForm();
     onClose();
   };
 
-  const handleCreateCategory = () => {
+  const handleCreateCategory = async () => {
     const trimmed = newCategoryName.trim();
 
-    if (!trimmed) return;
+    if (!trimmed || !startSubmitting()) return;
 
-    const existing = categories.find(
-      (item) => item.toLowerCase() === trimmed.toLowerCase(),
-    );
+    try {
+      if (!(await onAddCategory(trimmed))) return;
 
-    if (existing) {
-      setCategory(existing);
-    } else {
-      onAddCategory(trimmed);
       setCategory(trimmed);
+      setNewCategoryName("");
+      setIsCreatingCategory(false);
+    } catch (error) {
+      Alert.alert(
+        "Erro ao criar categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
     }
-
-    setNewCategoryName("");
-    setIsCreatingCategory(false);
   };
 
-  const handleEditCategory = () => {
+  const handleEditCategory = async () => {
     const trimmed = editedCategoryName.trim();
 
-    if (!trimmed || !categoryToEdit) return;
+    if (!trimmed || !categoryToEdit || !startSubmitting()) return;
 
-    onEditCategory(categoryToEdit, trimmed);
+    try {
+      if (!(await onEditCategory(categoryToEdit, trimmed))) return;
 
-    if (category === categoryToEdit) {
-      setCategory(trimmed);
+      if (category === categoryToEdit) {
+        setCategory(trimmed);
+      }
+
+      setCategoryToEdit(null);
+      setEditedCategoryName("");
+    } catch (error) {
+      Alert.alert(
+        "Erro ao renomear categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível renomear a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
     }
+  };
 
-    setCategoryToEdit(null);
-    setEditedCategoryName("");
+  const handleDeleteCategory = async (categoryName: string) => {
+    if (!startSubmitting()) return;
+
+    try {
+      if (!(await onDeleteCategory(categoryName))) return;
+
+      if (category === categoryName) setCategory(null);
+    } catch (error) {
+      Alert.alert(
+        "Erro ao apagar categoria",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível apagar a categoria. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
+    }
   };
 
   const handleCategoryLongPress = async (categoryName: string) => {
+    if (isSubmittingRef.current) return;
+
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
+
+    if (isSubmittingRef.current) return;
 
     Alert.alert(
       "Gerir Categoria",
@@ -160,14 +217,13 @@ export default function TransactionModal({
         {
           text: "Apagar",
           style: "destructive",
-          onPress: () => {
-            if (category === categoryName) setCategory(null);
-            onDeleteCategory(categoryName);
-          },
+          onPress: () => handleDeleteCategory(categoryName),
         },
         {
           text: "Renomear",
           onPress: () => {
+            if (isSubmittingRef.current) return;
+
             setCategoryToEdit(categoryName);
             setEditedCategoryName(categoryName);
           },
@@ -176,23 +232,34 @@ export default function TransactionModal({
     );
   };
 
-  const handleSave = () => {
-    if (!isValid || category === null) return;
+  const handleSave = async () => {
+    if (!isValid || category === null || !startSubmitting()) return;
 
-    onSave({
-      name: name.trim(),
-      price: priceCents,
-      category,
-      type,
-      isFixed,
-      isConfirmed,
-      installmentNumber:
-        transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
-      totalInstallments: isInstallment ? totalInstallments : undefined,
-      installmentGroupId: transactionToEdit?.installmentGroupId,
-    });
+    try {
+      await onSave({
+        name: name.trim(),
+        price: priceCents,
+        category,
+        type,
+        isFixed,
+        isConfirmed,
+        installmentNumber:
+          transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
+        totalInstallments: isInstallment ? totalInstallments : undefined,
+        installmentGroupId: transactionToEdit?.installmentGroupId,
+      });
 
-    resetForm();
+      resetForm();
+    } catch (error) {
+      Alert.alert(
+        "Erro ao salvar transação",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a transação. Tente novamente.",
+      );
+    } finally {
+      finishSubmitting();
+    }
   };
 
   return (
@@ -235,7 +302,9 @@ export default function TransactionModal({
                   setCategory={setCategory}
                   categories={categories}
                   isCreatingCategory={isCreatingCategory}
-                  onCreateCategory={() => setIsCreatingCategory(true)}
+                  onCreateCategory={() => {
+                    if (!isSubmittingRef.current) setIsCreatingCategory(true);
+                  }}
                   onCategoryLongPress={handleCategoryLongPress}
                   styles={styles}
                 />
@@ -258,7 +327,7 @@ export default function TransactionModal({
                     !isValid && styles.saveButtonDisabled,
                   ]}
                   onPress={handleSave}
-                  disabled={!isValid}
+                  disabled={!isValid || isSubmitting}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.saveButtonText}>Salvar</Text>
@@ -267,10 +336,13 @@ export default function TransactionModal({
             </View>
 
             <CategoryModals
+              isSubmitting={isSubmitting}
               isCreatingCategory={isCreatingCategory}
               newCategoryName={newCategoryName}
               setNewCategoryName={setNewCategoryName}
               onCloseCreate={() => {
+                if (isSubmittingRef.current) return;
+
                 setIsCreatingCategory(false);
                 setNewCategoryName("");
               }}
@@ -279,6 +351,8 @@ export default function TransactionModal({
               editedCategoryName={editedCategoryName}
               setEditedCategoryName={setEditedCategoryName}
               onCloseEdit={() => {
+                if (isSubmittingRef.current) return;
+
                 setCategoryToEdit(null);
                 setEditedCategoryName("");
               }}
