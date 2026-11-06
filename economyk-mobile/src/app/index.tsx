@@ -21,16 +21,19 @@ import { Feather } from "@expo/vector-icons";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { getHomeStyles } from "@/styles/home.styles";
 import { useThemeColors } from "@/styles/theme";
-import { FloatingThemeButton } from "@/components/floating-theme-button";
+import { SettingsButton } from "@/components/settings-button";
+import { SettingsModal } from "@/components/settings-modal";
+import {
+  exportBackup,
+  selectBackup,
+  restoreBackup,
+} from "@/services/backup-service";
 
 type FilterType = "all" | "income" | "expense";
 type ActiveTab = "transactions" | "analytics";
 
 export default function HomeScreen() {
-  // 1. Injetar as cores do tema dinâmico (Claro ou Escuro)
   const COLORS = useThemeColors();
-
-  // 2. Gerar os estilos com base nessas cores
   const styles = getHomeStyles(COLORS);
 
   const {
@@ -51,12 +54,15 @@ export default function HomeScreen() {
 
   const {
     categories,
+    loadCategories,
     handleAddCategory,
     handleDeleteCategory,
     handleEditCategory,
   } = useCategories(loadData);
 
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
+
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
 
@@ -100,6 +106,80 @@ export default function HomeScreen() {
     setEditingTransaction(null);
   };
 
+  const handleBackup = async () => {
+    setSettingsOpen(false);
+
+    try {
+      await exportBackup();
+    } catch (error) {
+      console.error("Erro ao exportar backup:", error);
+
+      Alert.alert(
+        "Erro no backup",
+        "Não foi possível exportar seus dados. Tente novamente.",
+      );
+    }
+  };
+
+  const handleRestore = async () => {
+    setSettingsOpen(false);
+
+    try {
+      const backup = await selectBackup();
+
+      if (!backup) return;
+
+      Alert.alert(
+        "Confirmar restauração",
+        `O backup de ${new Date(backup.createdAt).toLocaleString("pt-BR")} contém:\n\n` +
+          `${backup.data.transactions.length} transações\n` +
+          `${backup.data.categories.length} categorias\n\n` +
+          "Todos os dados atuais serão substituídos. Essa ação não poderá ser desfeita.",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+          {
+            text: "Restaurar",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                restoreBackup(backup);
+
+                await loadData();
+                await loadCategories();
+
+                setSelectedCategory("Todas");
+
+                Alert.alert(
+                  "Backup restaurado",
+                  "Seus dados foram restaurados com sucesso.",
+                );
+              } catch (error) {
+                console.error("Erro ao restaurar backup:", error);
+
+                Alert.alert(
+                  "Erro na restauração",
+                  "Não foi possível restaurar o backup. Seus dados anteriores foram preservados.",
+                );
+              }
+            },
+          },
+        ],
+      );
+    } catch (error) {
+      console.error("Erro ao selecionar backup:", error);
+
+      Alert.alert(
+        "Erro ao restaurar backup",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível ler o arquivo de backup.",
+      );
+    }
+  };
+
   const confirmRemoveTransaction = (itemToRemove: Transaction) => {
     let title = "Apagar transação?";
     let message = "Essa ação não poderá ser desfeita.";
@@ -127,7 +207,7 @@ export default function HomeScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* SWITCH SUPERIOR (Transações / Analytics) */}
+        {/* SWITCH SUPERIOR */}
         <View style={styles.topSwitchContainer}>
           <TouchableOpacity
             style={[
@@ -179,10 +259,10 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          <FloatingThemeButton />
+          <SettingsButton onPress={() => setSettingsOpen(true)} />
         </View>
 
-        {/* HEADER / MÊS (Sem o botão duplicado) */}
+        {/* HEADER / MÊS */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => handleMonthChange(-1)}
@@ -215,6 +295,7 @@ export default function HomeScreen() {
                 "Dez",
               ];
               const shortName = monthsShort[Number(monthNum)] || "Mês";
+
               return (
                 <>
                   <Text style={styles.monthText}>{shortName}</Text>
@@ -304,6 +385,7 @@ export default function HomeScreen() {
                 setSelectedCategory={setSelectedCategory}
                 categories={categories}
               />
+
               <View style={styles.listContainer}>
                 <FlatList
                   data={filteredItems}
@@ -347,6 +429,13 @@ export default function HomeScreen() {
             <Feather name="plus" size={28} color={COLORS.white} />
           </TouchableOpacity>
         )}
+
+        <SettingsModal
+          visible={isSettingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onBackup={handleBackup}
+          onRestore={handleRestore}
+        />
 
         <TransactionModal
           visible={isModalOpen}

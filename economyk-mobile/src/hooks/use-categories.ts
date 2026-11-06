@@ -86,6 +86,7 @@ export function useCategories(loadTransactionsData: () => void) {
 
   return {
     categories,
+    loadCategories,
     handleAddCategory,
     handleDeleteCategory,
     handleEditCategory,

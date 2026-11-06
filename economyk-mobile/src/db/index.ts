@@ -72,4 +72,5 @@ expoDb.execSync(`
     AND fixed_group_id IS NULL;
 `);
 
+export const sqlite = expoDb;
 export const db = drizzle(expoDb, { schema });
