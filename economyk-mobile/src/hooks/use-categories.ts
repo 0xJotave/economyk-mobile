@@ -26,9 +26,7 @@ export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
   const loadCategories = useCallback(async () => {
     const loadedCategories = await db.select().from(categoriesTable);
 
-    if (loadedCategories.length > 0) {
-      setCategories(loadedCategories.map((category) => category.name));
-    }
+    setCategories(loadedCategories.map((category) => category.name));
   }, []);
 
   useEffect(() => {

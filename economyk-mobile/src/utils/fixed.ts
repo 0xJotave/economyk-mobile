@@ -1,5 +1,4 @@
 import { Transaction } from "@/types/transaction";
-import { changeMonth } from "./month";
 
 type FixedGroupClosure = {
   fixedGroupId: number;
@@ -11,14 +10,23 @@ export const calculateFixedTransactions = (
   month: string,
   closures: FixedGroupClosure[] = [],
 ) => {
-  const previousMonth = changeMonth(month, -1);
+  const latestFixedByGroup = new Map<number, Transaction>();
 
-  const previousFixedItems = transactions.filter(
-    (transaction) =>
-      transaction.month === previousMonth &&
-      transaction.isFixed === true &&
-      transaction.fixedGroupId != null,
-  );
+  for (const transaction of transactions) {
+    if (
+      transaction.month >= month ||
+      transaction.isFixed !== true ||
+      transaction.fixedGroupId == null
+    ) {
+      continue;
+    }
+
+    const latest = latestFixedByGroup.get(transaction.fixedGroupId);
+
+    if (!latest || transaction.month > latest.month) {
+      latestFixedByGroup.set(transaction.fixedGroupId, transaction);
+    }
+  }
 
   const currentGroupIds = new Set(
     transactions
@@ -33,7 +41,7 @@ export const calculateFixedTransactions = (
       .map((closure) => closure.fixedGroupId),
   );
 
-  const toCopy = previousFixedItems.filter((transaction) => {
+  const toCopy = Array.from(latestFixedByGroup.values()).filter((transaction) => {
     const groupId = transaction.fixedGroupId!;
 
     return !currentGroupIds.has(groupId) && !closedGroupIds.has(groupId);

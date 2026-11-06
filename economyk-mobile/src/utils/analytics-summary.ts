@@ -15,7 +15,7 @@ export function calculateAnalyticsSummary(
   let totalExpense = 0;
   let totalSavings = 0;
 
-  const expensesByCategory: Record<string, number> = {};
+  const expensesByCategory = new Map<string, number>();
 
   for (const transaction of transactions) {
     if (transaction.month !== month) continue;
@@ -33,12 +33,14 @@ export function calculateAnalyticsSummary(
     if (transaction.type === "expense") {
       totalExpense += transaction.price;
 
-      expensesByCategory[transaction.category] =
-        (expensesByCategory[transaction.category] || 0) + transaction.price;
+      expensesByCategory.set(
+        transaction.category,
+        (expensesByCategory.get(transaction.category) ?? 0) + transaction.price,
+      );
     }
   }
 
-  const sortedCategories = Object.entries(expensesByCategory).sort(
+  const sortedCategories = Array.from(expensesByCategory.entries()).sort(
     (a, b) => b[1] - a[1],
   );
 
