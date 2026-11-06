@@ -218,6 +218,7 @@ export default function HomeScreen() {
           balance={balance}
           incomes={financialSummary.income}
           expenses={financialSummary.expenses}
+          savings={financialSummary.savings}
           activeTab={activeTab}
         />
 

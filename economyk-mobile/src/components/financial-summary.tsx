@@ -10,6 +10,7 @@ interface FinancialSummaryProps {
   balance: ReturnType<typeof calculateBalance>;
   incomes: number;
   expenses: number;
+  savings: number;
   activeTab: ActiveTab;
 }
 
@@ -17,10 +18,12 @@ export function FinancialSummary({
   balance,
   incomes,
   expenses,
+  savings,
   activeTab,
 }: FinancialSummaryProps) {
   const COLORS = useThemeColors();
   const styles = getHomeStyles(COLORS);
+  const availableBalance = balance.remainingAmount + balance.previousCarryover;
 
   return (
     <>
@@ -28,21 +31,18 @@ export function FinancialSummary({
         <View
           style={[
             styles.mainCard,
-            balance.totalAvailable < 0 && styles.mainCardNegative,
+            availableBalance < 0 && styles.mainCardNegative,
           ]}
         >
-          <Text style={styles.cardLabelVisible}>
-            Resultado do Mês Atual: {formatBRL(balance.monthlyResult / 100)}
+          <Text style={styles.cardLabelVisible}>Total Disponível</Text>
+          <Text style={styles.mainCardValue}>
+            {formatBRL(availableBalance / 100)}
           </Text>
           {balance.previousCarryover > 0 && (
-            <Text style={styles.cardLabelVisible}>
+            <Text style={styles.mainCardSubtitle}>
               Sobra do Mês Anterior: {formatBRL(balance.previousCarryover / 100)}
             </Text>
           )}
-          <Text style={styles.cardLabelVisible}>Total Disponível</Text>
-          <Text style={styles.mainCardValue}>
-            {formatBRL(balance.totalAvailable / 100)}
-          </Text>
         </View>
 
         {activeTab === "transactions" && (
@@ -50,9 +50,13 @@ export function FinancialSummary({
             <View style={styles.subCard}>
               <Feather name="arrow-up-circle" size={20} color={COLORS.income} />
 
-              <View style={{ marginLeft: 8 }}>
+              <View style={styles.subCardContent}>
                 <Text style={styles.subCardLabel}>Receitas</Text>
-                <Text style={[styles.subCardValue, { color: COLORS.income }]}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[styles.subCardValue, { color: COLORS.income }]}
+                >
                   {formatBRL(incomes / 100)}
                 </Text>
               </View>
@@ -65,10 +69,29 @@ export function FinancialSummary({
                 color={COLORS.expense}
               />
 
-              <View style={{ marginLeft: 8 }}>
+              <View style={styles.subCardContent}>
                 <Text style={styles.subCardLabel}>Despesas</Text>
-                <Text style={[styles.subCardValue, { color: COLORS.expense }]}>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[styles.subCardValue, { color: COLORS.expense }]}
+                >
                   {formatBRL(expenses / 100)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.subCard}>
+              <Feather name="archive" size={20} color={COLORS.sageDark} />
+
+              <View style={styles.subCardContent}>
+                <Text style={styles.subCardLabel}>Investimentos</Text>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[styles.subCardValue, { color: COLORS.sageDark }]}
+                >
+                  {formatBRL(savings / 100)}
                 </Text>
               </View>
             </View>
