@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   categories as categoriesTable,
   transactions as transactionsTable,
@@ -7,82 +7,142 @@ import { db } from "@/db";
 import { eq } from "drizzle-orm";
 import { Alert } from "react-native";
 
-export function useCategories(loadTransactionsData: () => void) {
-  const [categories, setCategories] = useState<string[]>([
-    "Contas",
-    "Alimentação",
-    "Auto Cuidado",
-    "Trabalho",
-    "Investimentos",
-  ]);
+interface UseCategoriesProps {
+  loadTransactionsData: () => Promise<void>;
+}
 
-  const loadCategories = async () => {
+const DEFAULT_CATEGORIES = [
+  "Contas",
+  "Alimentação",
+  "Auto Cuidado",
+  "Trabalho",
+  "Investimentos",
+];
+
+export function useCategories({ loadTransactionsData }: UseCategoriesProps) {
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+
+  const loadCategories = useCallback(async () => {
     const loadedCategories = await db.select().from(categoriesTable);
+
     if (loadedCategories.length > 0) {
-      setCategories(loadedCategories.map((c) => c.name));
+      setCategories(loadedCategories.map((category) => category.name));
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
-  const handleAddCategory = async (name: string) => {
-    await db.insert(categoriesTable).values({ name });
-    setCategories((prev) => [...prev, name]);
-  };
+  const handleAddCategory = useCallback(
+    async (name: string) => {
+      const trimmed = name.trim();
 
-  const handleDeleteCategory = async (
-    categoryName: string,
-    selectedCategory: string | null,
-    setSelectedCategory: (c: string) => void,
-  ) => {
-    // 1. Verifica se existem transações usando esta categoria no banco
-    const matchingTransactions = await db
-      .select()
-      .from(transactionsTable)
-      .where(eq(transactionsTable.category, categoryName));
+      if (!trimmed) return;
 
-    if (matchingTransactions.length > 0) {
-      Alert.alert(
-        "Não é possível apagar",
-        `A categoria "${categoryName}" possui ${matchingTransactions.length} transação(ões) vinculada(s). Renomeie a categoria ou remova as transações primeiro.`,
+      const exists = categories.some(
+        (category) => category.toLowerCase() === trimmed.toLowerCase(),
       );
-      return;
-    }
 
-    // 2. Se estiver vazia, prossegue com a exclusão
-    await db
-      .delete(categoriesTable)
-      .where(eq(categoriesTable.name, categoryName));
-    setCategories((prev) => prev.filter((c) => c !== categoryName));
-    if (selectedCategory === categoryName) setSelectedCategory("Todas");
-  };
+      if (exists) {
+        Alert.alert(
+          "Categoria existente",
+          "Essa categoria já está cadastrada.",
+        );
+        return;
+      }
 
-  const handleEditCategory = async (
-    oldCategoryName: string,
-    newCategoryName: string,
-    selectedCategory: string | null,
-    setSelectedCategory: (c: string) => void,
-  ) => {
-    const trimmed = newCategoryName.trim();
-    if (!trimmed || trimmed === oldCategoryName) return;
+      await db.insert(categoriesTable).values({ name: trimmed });
 
-    await db
-      .update(categoriesTable)
-      .set({ name: trimmed })
-      .where(eq(categoriesTable.name, oldCategoryName));
-    await db
-      .update(transactionsTable)
-      .set({ category: trimmed })
-      .where(eq(transactionsTable.category, oldCategoryName));
+      setCategories((previous) => [...previous, trimmed]);
+    },
+    [categories],
+  );
 
-    setCategories((prev) =>
-      prev.map((c) => (c === oldCategoryName ? trimmed : c)),
-    );
-    if (selectedCategory === oldCategoryName) setSelectedCategory(trimmed);
-    loadTransactionsData();
-  };
+  const handleDeleteCategory = useCallback(
+    async (
+      categoryName: string,
+      selectedCategory: string | null,
+      setSelectedCategory: (category: string | null) => void,
+    ) => {
+      const matchingTransactions = await db
+        .select({ id: transactionsTable.id })
+        .from(transactionsTable)
+        .where(eq(transactionsTable.category, categoryName))
+        .limit(1);
+
+      if (matchingTransactions.length > 0) {
+        Alert.alert(
+          "Não é possível apagar",
+          `A categoria "${categoryName}" possui transações vinculadas. Remova ou altere essas transações primeiro.`,
+        );
+        return;
+      }
+
+      await db
+        .delete(categoriesTable)
+        .where(eq(categoriesTable.name, categoryName));
+
+      setCategories((previous) =>
+        previous.filter((category) => category !== categoryName),
+      );
+
+      if (selectedCategory === categoryName) {
+        setSelectedCategory("Todas");
+      }
+    },
+    [],
+  );
+
+  const handleEditCategory = useCallback(
+    async (
+      oldCategoryName: string,
+      newCategoryName: string,
+      selectedCategory: string | null,
+      setSelectedCategory: (category: string | null) => void,
+    ) => {
+      const trimmed = newCategoryName.trim();
+
+      if (!trimmed || trimmed === oldCategoryName) return;
+
+      const exists = categories.some(
+        (category) =>
+          category !== oldCategoryName &&
+          category.toLowerCase() === trimmed.toLowerCase(),
+      );
+
+      if (exists) {
+        Alert.alert(
+          "Categoria existente",
+          "Essa categoria já está cadastrada.",
+        );
+        return;
+      }
+
+      await db
+        .update(categoriesTable)
+        .set({ name: trimmed })
+        .where(eq(categoriesTable.name, oldCategoryName));
+
+      await db
+        .update(transactionsTable)
+        .set({ category: trimmed })
+        .where(eq(transactionsTable.category, oldCategoryName));
+
+      setCategories((previous) =>
+        previous.map((category) =>
+          category === oldCategoryName ? trimmed : category,
+        ),
+      );
+
+      if (selectedCategory === oldCategoryName) {
+        setSelectedCategory(trimmed);
+      }
+
+      await loadTransactionsData();
+    },
+    [categories, loadTransactionsData],
+  );
 
   return {
     categories,

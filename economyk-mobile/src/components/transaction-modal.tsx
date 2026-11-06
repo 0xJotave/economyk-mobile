@@ -1,13 +1,8 @@
-import {
-  NewTransaction,
-  Transaction,
-  TransactionType,
-} from "@/types/transaction";
+import { NewTransaction, Transaction } from "@/types/transaction";
 import { useEffect, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   SafeAreaView,
   Modal,
@@ -15,13 +10,11 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { typesLabel } from "@/utils/labels";
-import { formatBRL } from "@/utils/format";
 import * as Haptics from "expo-haptics";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { CategoryModals } from "./category-modals";
-import { Chip } from "./chip";
 import { TransactionOptions } from "./transaction-options";
+import { TransactionForm } from "./transaction-form";
 import { useThemeColors, ThemeColors } from "@/styles/theme";
 
 interface TransactionModalProps {
@@ -34,8 +27,6 @@ interface TransactionModalProps {
   onEditCategory: (oldCategoryName: string, newCategoryName: string) => void;
   transactionToEdit: Transaction | null;
 }
-
-const transactionTypes = Object.keys(typesLabel) as TransactionType[];
 
 export default function TransactionModal({
   visible,
@@ -50,37 +41,21 @@ export default function TransactionModal({
   const COLORS = useThemeColors();
   const styles = getStyles(COLORS);
 
-  const [name, setName] = useState<string>("");
-  const [priceCents, setPriceCents] = useState<number>(0);
-  const [type, setType] = useState<TransactionType>("expense");
+  const [name, setName] = useState("");
+  const [priceCents, setPriceCents] = useState(0);
+  const [type, setType] = useState<Transaction["type"]>("expense");
   const [category, setCategory] = useState<string | null>(null);
   const [isFixed, setIsFixed] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(true);
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [totalInstallments, setTotalInstallments] = useState(2);
+
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryToEdit, setCategoryToEdit] = useState<string | null>(null);
   const [editedCategoryName, setEditedCategoryName] = useState("");
-  const [isInstallment, setIsInstallment] = useState(false);
-  const [totalInstallments, setTotalInstallments] = useState<number>(2);
 
   const [renderModal, setRenderModal] = useState(visible);
-
-  useEffect(() => {
-    if (visible) {
-      setRenderModal(true);
-    } else {
-      const timer = setTimeout(() => setRenderModal(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
-
-  const isPriceValid = priceCents > 0;
-  const isValid = name.trim() !== "" && isPriceValid && category !== null;
-
-  const handlePriceChange = (text: string) => {
-    const digits = text.replace(/\D/g, "").slice(0, 9);
-    setPriceCents(Number(digits));
-  };
 
   const resetForm = () => {
     setName("");
@@ -93,28 +68,44 @@ export default function TransactionModal({
     setTotalInstallments(2);
     setIsCreatingCategory(false);
     setNewCategoryName("");
+    setCategoryToEdit(null);
+    setEditedCategoryName("");
   };
 
   useEffect(() => {
-    if (!visible) return;
-    if (transactionToEdit) {
-      setName(transactionToEdit.name);
-      setPriceCents(transactionToEdit.price);
-      setType(transactionToEdit.type);
-      setCategory(transactionToEdit.category);
-      setIsFixed(transactionToEdit.isFixed);
-      setIsConfirmed(transactionToEdit.isConfirmed);
-
-      const isAlreadyInstallment = !!transactionToEdit.installmentGroupId;
-      setIsInstallment(isAlreadyInstallment);
-      setTotalInstallments(transactionToEdit.totalInstallments || 2);
-
-      setIsCreatingCategory(false);
-      setNewCategoryName("");
-    } else {
-      resetForm();
+    if (visible) {
+      setRenderModal(true);
+      return;
     }
+
+    const timer = setTimeout(() => setRenderModal(false), 300);
+
+    return () => clearTimeout(timer);
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    if (!transactionToEdit) {
+      resetForm();
+      return;
+    }
+
+    setName(transactionToEdit.name);
+    setPriceCents(transactionToEdit.price);
+    setType(transactionToEdit.type);
+    setCategory(transactionToEdit.category);
+    setIsFixed(transactionToEdit.isFixed);
+    setIsConfirmed(transactionToEdit.isConfirmed);
+    setIsInstallment(transactionToEdit.installmentGroupId != null);
+    setTotalInstallments(transactionToEdit.totalInstallments || 2);
+    setIsCreatingCategory(false);
+    setNewCategoryName("");
+    setCategoryToEdit(null);
+    setEditedCategoryName("");
   }, [visible, transactionToEdit]);
+
+  const isValid = name.trim() !== "" && priceCents > 0 && category !== null;
 
   const handleClose = () => {
     resetForm();
@@ -123,43 +114,43 @@ export default function TransactionModal({
 
   const handleCreateCategory = () => {
     const trimmed = newCategoryName.trim();
-    if (trimmed === "") return;
+
+    if (!trimmed) return;
+
     const existing = categories.find(
-      (c) => c.toLowerCase() === trimmed.toLowerCase(),
+      (item) => item.toLowerCase() === trimmed.toLowerCase(),
     );
+
     if (existing) {
       setCategory(existing);
     } else {
       onAddCategory(trimmed);
       setCategory(trimmed);
     }
+
     setNewCategoryName("");
     setIsCreatingCategory(false);
   };
 
-  const handleSave = () => {
-    if (!isValid || category === null) return;
-    onSave({
-      name: name.trim(),
-      price: priceCents,
-      category,
-      type,
-      isFixed,
-      isConfirmed,
-      installmentNumber:
-        transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
-      totalInstallments: isInstallment ? totalInstallments : undefined,
-      installmentGroupId: transactionToEdit?.installmentGroupId,
-    });
-    resetForm();
+  const handleEditCategory = () => {
+    const trimmed = editedCategoryName.trim();
+
+    if (!trimmed || !categoryToEdit) return;
+
+    onEditCategory(categoryToEdit, trimmed);
+
+    if (category === categoryToEdit) {
+      setCategory(trimmed);
+    }
+
+    setCategoryToEdit(null);
+    setEditedCategoryName("");
   };
 
   const handleCategoryLongPress = async (categoryName: string) => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (error) {
-      console.log("Haptics não suportado neste ambiente", error);
-    }
+    } catch {}
 
     Alert.alert(
       "Gerir Categoria",
@@ -185,10 +176,29 @@ export default function TransactionModal({
     );
   };
 
+  const handleSave = () => {
+    if (!isValid || category === null) return;
+
+    onSave({
+      name: name.trim(),
+      price: priceCents,
+      category,
+      type,
+      isFixed,
+      isConfirmed,
+      installmentNumber:
+        transactionToEdit?.installmentNumber ?? (isInstallment ? 1 : undefined),
+      totalInstallments: isInstallment ? totalInstallments : undefined,
+      installmentGroupId: transactionToEdit?.installmentGroupId,
+    });
+
+    resetForm();
+  };
+
   return (
     <Modal
       visible={renderModal}
-      transparent={true}
+      transparent
       animationType="none"
       onRequestClose={handleClose}
     >
@@ -202,10 +212,9 @@ export default function TransactionModal({
             <View style={styles.modalContainer}>
               <View style={styles.header}>
                 <Text style={styles.title}>
-                  {transactionToEdit != null
-                    ? "Editar transação"
-                    : "Nova Transação"}
+                  {transactionToEdit ? "Editar transação" : "Nova Transação"}
                 </Text>
+
                 <TouchableOpacity onPress={handleClose}>
                   <Text style={styles.closeButtonText}>Fechar</Text>
                 </TouchableOpacity>
@@ -215,60 +224,21 @@ export default function TransactionModal({
                 contentContainerStyle={styles.content}
                 keyboardShouldPersistTaps="handled"
               >
-                <Text style={styles.label}>Nome</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Supermercado"
-                  placeholderTextColor={COLORS.textSecondary}
-                  value={name}
-                  onChangeText={setName}
-                  maxLength={40}
+                <TransactionForm
+                  name={name}
+                  setName={setName}
+                  priceCents={priceCents}
+                  setPriceCents={setPriceCents}
+                  type={type}
+                  setType={setType}
+                  category={category}
+                  setCategory={setCategory}
+                  categories={categories}
+                  isCreatingCategory={isCreatingCategory}
+                  onCreateCategory={() => setIsCreatingCategory(true)}
+                  onCategoryLongPress={handleCategoryLongPress}
+                  styles={styles}
                 />
-
-                <Text style={styles.label}>Valor (R$)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0,00"
-                  placeholderTextColor={COLORS.textSecondary}
-                  value={priceCents === 0 ? "" : formatBRL(priceCents / 100)}
-                  onChangeText={handlePriceChange}
-                  keyboardType="number-pad"
-                />
-                {priceCents !== 0 && !isPriceValid && (
-                  <Text style={styles.error}>
-                    Digite um valor maior que zero
-                  </Text>
-                )}
-
-                <Text style={styles.label}>Tipo</Text>
-                <View style={styles.chipRow}>
-                  {transactionTypes.map((t) => (
-                    <Chip
-                      key={t}
-                      label={typesLabel[t]}
-                      selected={type === t}
-                      onPress={() => setType(t)}
-                    />
-                  ))}
-                </View>
-
-                <Text style={styles.label}>Categoria</Text>
-                <View style={styles.chipRow}>
-                  {categories.map((c) => (
-                    <Chip
-                      key={c}
-                      label={c}
-                      selected={category === c}
-                      onPress={() => setCategory(c)}
-                      onLongPress={() => handleCategoryLongPress(c)}
-                    />
-                  ))}
-                  <Chip
-                    label="+ Nova"
-                    selected={isCreatingCategory}
-                    onPress={() => setIsCreatingCategory(true)}
-                  />
-                </View>
 
                 <TransactionOptions
                   isFixed={isFixed}
@@ -302,21 +272,17 @@ export default function TransactionModal({
               setNewCategoryName={setNewCategoryName}
               onCloseCreate={() => {
                 setIsCreatingCategory(false);
-                newCategoryName !== "" && setNewCategoryName("");
+                setNewCategoryName("");
               }}
               onCreate={handleCreateCategory}
               categoryToEdit={categoryToEdit}
               editedCategoryName={editedCategoryName}
               setEditedCategoryName={setEditedCategoryName}
-              onCloseEdit={() => setCategoryToEdit(null)}
-              onEdit={() => {
-                if (editedCategoryName.trim() && categoryToEdit) {
-                  onEditCategory(categoryToEdit, editedCategoryName.trim());
-                  if (category === categoryToEdit)
-                    setCategory(editedCategoryName.trim());
-                }
+              onCloseEdit={() => {
                 setCategoryToEdit(null);
+                setEditedCategoryName("");
               }}
+              onEdit={handleEditCategory}
             />
           </SafeAreaView>
         </Animated.View>
@@ -379,11 +345,6 @@ const getStyles = (COLORS: ThemeColors) =>
       fontFamily: "Body Medium",
       fontSize: 15,
       color: COLORS.text,
-    },
-    error: {
-      color: COLORS.expense,
-      fontSize: 12,
-      fontFamily: "Body Medium",
     },
     chipRow: {
       flexDirection: "row",

@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, ScrollView, Keyboard } from "react-native";
-import { Transaction } from "@/types/transaction";
+import type { Transaction } from "@/types/transaction";
 import { formatBRL } from "@/utils/format";
+import { calculateAnalyticsSummary } from "@/utils/analytics-summary";
 import { SpendingChart } from "./analytics/spending-chart";
 import { FinancialSummary } from "./analytics/financial-summary";
 import { AIFinancialReport } from "./analytics/ai-financial-report";
-import { useThemeColors, ThemeColors } from "@/styles/theme";
+import { useThemeColors, type ThemeColors } from "@/styles/theme";
 
 interface AnalyticsViewProps {
   transactions: Transaction[];
@@ -29,32 +30,8 @@ export default function AnalyticsView({
     "#8E7C68",
   ];
 
-  const monthItems = transactions.filter((t) => t.month === month);
-
-  const totalIncome = monthItems
-    .filter((t) => t.type === "income")
-    .reduce((acc, curr) => acc + curr.price, 0);
-
-  const totalExpense = monthItems
-    .filter((t) => t.type === "expense")
-    .reduce((acc, curr) => acc + curr.price, 0);
-
-  const totalSavings = monthItems
-    .filter((t) => t.type === "saving")
-    .reduce((acc, curr) => acc + curr.price, 0);
-
-  const expensesByCategory: { [key: string]: number } = {};
-
-  monthItems
-    .filter((t) => t.type === "expense")
-    .forEach((t) => {
-      expensesByCategory[t.category] =
-        (expensesByCategory[t.category] || 0) + t.price;
-    });
-
-  const sortedCategories = Object.entries(expensesByCategory).sort(
-    (a, b) => b[1] - a[1],
-  );
+  const { totalIncome, totalExpense, totalSavings, sortedCategories } =
+    calculateAnalyticsSummary(transactions, month);
 
   return (
     <ScrollView
@@ -85,6 +62,7 @@ export default function AnalyticsView({
                 <View style={[styles.colorDot, { backgroundColor: color }]} />
                 <Text style={styles.categoryName}>{category}</Text>
               </View>
+
               <Text style={styles.categoryAmount}>
                 {formatBRL(amount / 100)}
               </Text>
@@ -101,6 +79,7 @@ export default function AnalyticsView({
                 ]}
               />
             </View>
+
             <Text style={styles.percentageText}>
               {percentage.toFixed(1)}% do total
             </Text>
@@ -128,7 +107,10 @@ export default function AnalyticsView({
 
 const getStyles = (COLORS: ThemeColors) =>
   StyleSheet.create({
-    container: { flex: 1, width: "100%" },
+    container: {
+      flex: 1,
+      width: "100%",
+    },
     contentContainer: {
       flexGrow: 1,
       paddingHorizontal: 20,
@@ -159,8 +141,16 @@ const getStyles = (COLORS: ThemeColors) =>
       alignItems: "center",
       marginBottom: 8,
     },
-    categoryTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    colorDot: { width: 10, height: 10, borderRadius: 5 },
+    categoryTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+    },
+    colorDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
     categoryName: {
       fontSize: 15,
       fontFamily: "Body SemiBold",
@@ -178,7 +168,10 @@ const getStyles = (COLORS: ThemeColors) =>
       overflow: "hidden",
       marginBottom: 6,
     },
-    progressBarFill: { height: "100%", borderRadius: 4 },
+    progressBarFill: {
+      height: "100%",
+      borderRadius: 4,
+    },
     percentageText: {
       fontSize: 11,
       fontFamily: "Body Medium",
