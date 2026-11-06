@@ -3,10 +3,13 @@ import { transactions } from "@/db/schema";
 import { NewTransaction, Transaction } from "@/types/transaction";
 import { eq } from "drizzle-orm";
 
-export async function createTransaction(
+export type TransactionExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export function createTransaction(
   data: NewTransaction,
   month: string,
-): Promise<Transaction> {
+  executor: typeof db | TransactionExecutor = db,
+): Transaction {
   const id = Date.now();
 
   const newTransaction: Transaction = {
@@ -16,29 +19,33 @@ export async function createTransaction(
     fixedGroupId: data.isFixed ? id : undefined,
   };
 
-  await db.insert(transactions).values(newTransaction);
+  executor.insert(transactions).values(newTransaction).run();
 
   return newTransaction;
 }
 
-export async function updateTransaction(
+export function updateTransaction(
   data: NewTransaction,
   editingTransaction: Transaction,
-): Promise<Transaction> {
+  executor: typeof db | TransactionExecutor = db,
+): Transaction {
   const updatedTransaction: Transaction = {
     ...data,
     id: editingTransaction.id,
     month: editingTransaction.month,
   };
 
-  await db
+  executor
     .update(transactions)
     .set(data)
-    .where(eq(transactions.id, editingTransaction.id));
+    .where(eq(transactions.id, editingTransaction.id)).run();
 
   return updatedTransaction;
 }
 
-export async function deleteTransaction(id: number): Promise<void> {
-  await db.delete(transactions).where(eq(transactions.id, id));
+export function deleteTransaction(
+  id: number,
+  executor: typeof db | TransactionExecutor = db,
+): void {
+  executor.delete(transactions).where(eq(transactions.id, id)).run();
 }

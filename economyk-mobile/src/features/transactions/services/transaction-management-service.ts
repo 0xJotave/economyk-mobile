@@ -1,3 +1,6 @@
+import { db } from "@/db";
+import { transactions } from "@/db/schema";
+import type { TransactionExecutor } from "./transaction-service";
 import { NewTransaction, Transaction } from "@/types/transaction";
 import { changeMonth } from "@/utils/month";
 import {
@@ -16,24 +19,25 @@ import {
   deleteFixedTransaction,
 } from "./fixed-transaction-service";
 
-export async function saveTransaction(
+function saveTransactionInTransaction(
   data: NewTransaction,
   editingTransaction: Transaction | null,
   month: string,
   currentTransactions: Transaction[],
-): Promise<Transaction[]> {
+  executor: TransactionExecutor,
+): Transaction[] {
   if (!editingTransaction) {
     if (data.totalInstallments && data.totalInstallments > 1) {
-      const newTransactions = await createInstallments(data, month);
+      const newTransactions = createInstallments(data, month, executor);
       return [...currentTransactions, ...newTransactions];
     }
 
-    const newTransaction = await createTransaction(data, month);
+    const newTransaction = createTransaction(data, month, executor);
     const updatedList = [...currentTransactions, newTransaction];
 
     if (newTransaction.isFixed) {
       const nextMonth = changeMonth(month, 1);
-      const propagated = await applyFixedTransactions(updatedList, nextMonth);
+      const propagated = applyFixedTransactions(updatedList, nextMonth, executor);
 
       updatedList.push(...propagated);
     }
@@ -42,7 +46,7 @@ export async function saveTransaction(
   }
 
   if (editingTransaction.installmentGroupId != null) {
-    const newTransactions = await updateInstallments(data, editingTransaction);
+    const newTransactions = updateInstallments(data, editingTransaction, executor);
 
     const remainingTransactions = currentTransactions.filter(
       (transaction) =>
@@ -57,7 +61,7 @@ export async function saveTransaction(
 
     if (data.isFixed) {
       const nextMonth = changeMonth(editingTransaction.month, 1);
-      const propagated = await applyFixedTransactions(updatedList, nextMonth);
+      const propagated = applyFixedTransactions(updatedList, nextMonth, executor);
 
       updatedList.push(...propagated);
     }
@@ -70,9 +74,10 @@ export async function saveTransaction(
     editingTransaction.isFixed ||
     editingTransaction.fixedGroupId != null
   ) {
-    const updatedTransaction = await updateFixedTransaction(
+    const updatedTransaction = updateFixedTransaction(
       data,
       editingTransaction,
+      executor,
     );
 
     const groupId = editingTransaction.fixedGroupId ?? editingTransaction.id;
@@ -87,11 +92,12 @@ export async function saveTransaction(
     );
 
     if (data.totalInstallments && data.totalInstallments > 1) {
-      await deleteTransaction(updatedTransaction.id);
+      deleteTransaction(updatedTransaction.id, executor);
 
-      const newTransactions = await createInstallments(
+      const newTransactions = createInstallments(
         data,
         editingTransaction.month,
+        executor,
       );
 
       return [...remainingTransactions, ...newTransactions];
@@ -101,7 +107,7 @@ export async function saveTransaction(
 
     if (data.isFixed) {
       const nextMonth = changeMonth(editingTransaction.month, 1);
-      const propagated = await applyFixedTransactions(updatedList, nextMonth);
+      const propagated = applyFixedTransactions(updatedList, nextMonth, executor);
 
       updatedList.push(...propagated);
     }
@@ -110,11 +116,12 @@ export async function saveTransaction(
   }
 
   if (data.totalInstallments && data.totalInstallments > 1) {
-    await deleteTransaction(editingTransaction.id);
+    deleteTransaction(editingTransaction.id, executor);
 
-    const newTransactions = await createInstallments(
+    const newTransactions = createInstallments(
       data,
       editingTransaction.month,
+      executor,
     );
 
     return [
@@ -125,19 +132,20 @@ export async function saveTransaction(
     ];
   }
 
-  const updatedTransaction = await updateTransaction(data, editingTransaction);
+  const updatedTransaction = updateTransaction(data, editingTransaction, executor);
 
   return currentTransactions.map((transaction) =>
     transaction.id === editingTransaction.id ? updatedTransaction : transaction,
   );
 }
 
-export async function removeTransaction(
+function removeTransactionInTransaction(
   itemToRemove: Transaction,
   currentTransactions: Transaction[],
-): Promise<Transaction[]> {
+  executor: TransactionExecutor,
+): Transaction[] {
   if (itemToRemove.installmentGroupId != null) {
-    await deleteInstallments(itemToRemove);
+    deleteInstallments(itemToRemove, executor);
 
     return currentTransactions.filter(
       (transaction) =>
@@ -149,7 +157,7 @@ export async function removeTransaction(
   }
 
   if (itemToRemove.isFixed || itemToRemove.fixedGroupId != null) {
-    await deleteFixedTransaction(itemToRemove);
+    deleteFixedTransaction(itemToRemove, executor);
 
     const groupId = itemToRemove.fixedGroupId ?? itemToRemove.id;
 
@@ -163,9 +171,35 @@ export async function removeTransaction(
     );
   }
 
-  await deleteTransaction(itemToRemove.id);
+  deleteTransaction(itemToRemove.id, executor);
 
   return currentTransactions.filter(
     (transaction) => transaction.id !== itemToRemove.id,
   );
+}
+
+export async function saveTransaction(
+  data: NewTransaction,
+  editingTransaction: Transaction | null,
+  month: string,
+  _currentTransactions: Transaction[],
+): Promise<Transaction[]> {
+  return db.transaction((tx) => saveTransactionInTransaction(
+    data,
+    editingTransaction,
+    month,
+    tx.select().from(transactions).all() as Transaction[],
+    tx,
+  ));
+}
+
+export async function removeTransaction(
+  itemToRemove: Transaction,
+  _currentTransactions: Transaction[],
+): Promise<Transaction[]> {
+  return db.transaction((tx) => removeTransactionInTransaction(
+    itemToRemove,
+    tx.select().from(transactions).all() as Transaction[],
+    tx,
+  ));
 }

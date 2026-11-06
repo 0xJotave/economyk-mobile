@@ -3,99 +3,113 @@ import { fixedGroupClosures, transactions } from "@/db/schema";
 import { NewTransaction, Transaction } from "@/types/transaction";
 import { and, eq, gte, or } from "drizzle-orm";
 import { calculateFixedTransactions } from "@/utils/fixed";
-import { changeMonth } from "@/utils/month";
+import type { TransactionExecutor } from "./transaction-service";
 
-export async function applyFixedTransactions(
-  currentTransactions: Transaction[],
+export function applyFixedTransactions(
+  _currentTransactions: Transaction[],
   targetMonth: string,
-): Promise<Transaction[]> {
-  const closures = await db.select().from(fixedGroupClosures);
+  executor: typeof db | TransactionExecutor = db,
+): Transaction[] {
+  return executor.transaction((tx) => {
+    const closures = tx.select().from(fixedGroupClosures).all();
+    const persisted = tx.select().from(transactions).all() as Transaction[];
+    const candidates = calculateFixedTransactions(persisted, targetMonth, closures);
+    const groups = new Set<number>();
+    const missing = candidates.filter((item) => {
+      const groupId = item.fixedGroupId!;
+      if (groups.has(groupId)) return false;
+      groups.add(groupId);
+      return true;
+    });
 
-  const fixedTransactions = calculateFixedTransactions(
-    currentTransactions,
-    targetMonth,
-    closures,
-  );
-
-  if (fixedTransactions.length === 0) {
-    return [];
-  }
-
-  await db.insert(transactions).values(fixedTransactions);
-
-  return fixedTransactions;
+    if (missing.length > 0) tx.insert(transactions).values(missing).run();
+    return missing;
+  }, { behavior: "immediate" });
 }
 
-async function closeFixedGroup(
+function closeFixedGroup(
   groupId: number,
   fromMonth: string,
-): Promise<void> {
-  await db
-    .delete(fixedGroupClosures)
-    .where(eq(fixedGroupClosures.fixedGroupId, groupId));
+  executor: typeof db | TransactionExecutor = db,
+): void {
+  return executor.transaction((tx) => {
+    tx.delete(fixedGroupClosures)
+      .where(eq(fixedGroupClosures.fixedGroupId, groupId)).run();
 
-  await db.insert(fixedGroupClosures).values({
-    fixedGroupId: groupId,
-    fromMonth,
+    tx.insert(fixedGroupClosures).values({
+      fixedGroupId: groupId,
+      fromMonth,
+    }).run();
   });
 }
 
-async function reopenFixedGroup(groupId: number): Promise<void> {
-  await db
+function reopenFixedGroup(
+  groupId: number,
+  executor: typeof db | TransactionExecutor,
+): void {
+  executor
     .delete(fixedGroupClosures)
-    .where(eq(fixedGroupClosures.fixedGroupId, groupId));
+    .where(eq(fixedGroupClosures.fixedGroupId, groupId)).run();
 }
 
-export async function updateFixedTransaction(
+export function updateFixedTransaction(
   data: NewTransaction,
   editingTransaction: Transaction,
-): Promise<Transaction> {
-  const groupId = editingTransaction.fixedGroupId ?? editingTransaction.id;
+  executor: typeof db | TransactionExecutor = db,
+): Transaction {
+  return executor.transaction((tx) => {
+    const groupId = editingTransaction.fixedGroupId ?? editingTransaction.id;
 
-  await db
-    .delete(transactions)
-    .where(
-      and(
-        or(
-          eq(transactions.fixedGroupId, groupId),
-          eq(transactions.id, groupId),
+    tx.delete(transactions)
+      .where(
+        and(
+          or(
+            eq(transactions.fixedGroupId, groupId),
+            eq(transactions.id, groupId),
+          ),
+          gte(transactions.month, editingTransaction.month),
         ),
-        gte(transactions.month, editingTransaction.month),
-      ),
-    );
+      )
+      .run();
 
-  if (data.isFixed) {
-    await reopenFixedGroup(groupId);
-  } else {
-    await closeFixedGroup(groupId, editingTransaction.month);
-  }
+    if (data.isFixed) {
+      reopenFixedGroup(groupId, tx);
+    } else {
+      closeFixedGroup(groupId, editingTransaction.month, tx);
+    }
 
-  const updatedTransaction: Transaction = {
-    ...data,
-    id: editingTransaction.id,
-    month: editingTransaction.month,
-    fixedGroupId: data.isFixed ? groupId : undefined,
-  };
+    const updatedTransaction: Transaction = {
+      ...data,
+      id: editingTransaction.id,
+      month: editingTransaction.month,
+      fixedGroupId: data.isFixed ? groupId : undefined,
+    };
 
-  await db.insert(transactions).values(updatedTransaction);
+    tx.insert(transactions).values(updatedTransaction).run();
 
-  return updatedTransaction;
+    return updatedTransaction;
+  });
 }
 
-export async function deleteFixedTransaction(item: Transaction): Promise<void> {
-  const groupId = item.fixedGroupId ?? item.id;
+export function deleteFixedTransaction(
+  item: Transaction,
+  executor: typeof db | TransactionExecutor = db,
+): void {
+  return executor.transaction((tx) => {
+    const groupId = item.fixedGroupId ?? item.id;
 
-  await closeFixedGroup(groupId, item.month);
+    closeFixedGroup(groupId, item.month, tx);
 
-  await db
-    .delete(transactions)
-    .where(
-      and(
-        or(
-          eq(transactions.fixedGroupId, groupId),
-          eq(transactions.id, groupId),
+    tx.delete(transactions)
+      .where(
+        and(
+          or(
+            eq(transactions.fixedGroupId, groupId),
+            eq(transactions.id, groupId),
+          ),
+          gte(transactions.month, item.month),
         ),
-        gte(transactions.month, item.month),
-      ),
-    );
+      )
+      .run();
+  });
 }

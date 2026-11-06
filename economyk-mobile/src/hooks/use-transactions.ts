@@ -20,12 +20,12 @@ export function useTransactions() {
       .select()
       .from(transactionsTable)) as Transaction[];
 
-    const newFixed = await applyFixedTransactions(
+    await applyFixedTransactions(
       loadedTransactions,
       getCurrentMonth(),
     );
 
-    setTransactions([...loadedTransactions, ...newFixed]);
+    setTransactions(db.select().from(transactionsTable).all() as Transaction[]);
   }, []);
 
   useEffect(() => {
@@ -38,14 +38,14 @@ export function useTransactions() {
       editingTransaction: Transaction | null,
       closeModal: () => void,
     ) => {
-      const updatedTransactions = await saveTransaction(
+      await saveTransaction(
         data,
         editingTransaction,
         month,
         transactions,
       );
 
-      setTransactions(updatedTransactions);
+      setTransactions(db.select().from(transactionsTable).all() as Transaction[]);
       closeModal();
     },
     [month, transactions],
@@ -53,12 +53,12 @@ export function useTransactions() {
 
   const handleRemoveTransaction = useCallback(
     async (itemToRemove: Transaction) => {
-      const updatedTransactions = await removeTransaction(
+      await removeTransaction(
         itemToRemove,
         transactions,
       );
 
-      setTransactions(updatedTransactions);
+      setTransactions(db.select().from(transactionsTable).all() as Transaction[]);
     },
     [transactions],
   );
@@ -72,11 +72,9 @@ export function useTransactions() {
 
       try {
         const nextMonth = changeMonth(month, step);
-        const newFixed = await applyFixedTransactions(transactions, nextMonth);
+        await applyFixedTransactions(transactions, nextMonth);
 
-        if (newFixed.length > 0) {
-          setTransactions((previous) => [...previous, ...newFixed]);
-        }
+        setTransactions(db.select().from(transactionsTable).all() as Transaction[]);
 
         setMonth(nextMonth);
       } catch (error) {
