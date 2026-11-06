@@ -1,19 +1,26 @@
-import React from "react";
 import { View, Text, Switch } from "react-native";
+import type { ViewStyle, TextStyle } from "react-native";
 import { Chip } from "./chip";
 import { useThemeColors } from "@/styles/theme";
 
 interface TransactionOptionsProps {
   isFixed: boolean;
-  setIsFixed: (val: boolean) => void;
+  setIsFixed: (value: boolean) => void;
   isConfirmed: boolean;
-  setIsConfirmed: (val: boolean) => void;
+  setIsConfirmed: (value: boolean) => void;
   isInstallment: boolean;
-  setIsInstallment: (val: boolean) => void;
+  setIsInstallment: (value: boolean) => void;
   totalInstallments: number;
-  setTotalInstallments: (num: number) => void;
-  styles: any;
+  setTotalInstallments: (value: number) => void;
+  styles: {
+    switchRow: ViewStyle;
+    switchText: TextStyle;
+    label: TextStyle;
+    chipRow: ViewStyle;
+  };
 }
+
+const INSTALLMENT_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export function TransactionOptions({
   isFixed,
@@ -28,8 +35,22 @@ export function TransactionOptions({
 }: TransactionOptionsProps) {
   const COLORS = useThemeColors();
 
-  const switchTrackColor = { false: COLORS.border, true: COLORS.burgundy };
-  const switchThumbColor = COLORS.white;
+  const switchTrackColor = {
+    false: COLORS.border,
+    true: COLORS.burgundy,
+  };
+
+  const handleFixedChange = (value: boolean) => {
+    setIsFixed(value);
+
+    if (value) setIsInstallment(false);
+  };
+
+  const handleInstallmentChange = (value: boolean) => {
+    setIsInstallment(value);
+
+    if (value) setIsFixed(false);
+  };
 
   return (
     <>
@@ -37,12 +58,9 @@ export function TransactionOptions({
         <Text style={styles.switchText}>Fixa (todo mês)</Text>
         <Switch
           trackColor={switchTrackColor}
-          thumbColor={switchThumbColor}
+          thumbColor={COLORS.white}
           value={isFixed}
-          onValueChange={(val) => {
-            setIsFixed(val);
-            if (val) setIsInstallment(false);
-          }}
+          onValueChange={handleFixedChange}
         />
       </View>
 
@@ -50,7 +68,7 @@ export function TransactionOptions({
         <Text style={styles.switchText}>Valor confirmado</Text>
         <Switch
           trackColor={switchTrackColor}
-          thumbColor={switchThumbColor}
+          thumbColor={COLORS.white}
           value={isConfirmed}
           onValueChange={setIsConfirmed}
         />
@@ -60,12 +78,9 @@ export function TransactionOptions({
         <Text style={styles.switchText}>Parcelado</Text>
         <Switch
           trackColor={switchTrackColor}
-          thumbColor={switchThumbColor}
+          thumbColor={COLORS.white}
           value={isInstallment}
-          onValueChange={(val) => {
-            setIsInstallment(val);
-            if (val) setIsFixed(false);
-          }}
+          onValueChange={handleInstallmentChange}
         />
       </View>
 
@@ -74,13 +89,14 @@ export function TransactionOptions({
           <Text style={styles.label}>
             Número de Parcelas ({totalInstallments}x)
           </Text>
+
           <View style={styles.chipRow}>
-            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
+            {INSTALLMENT_OPTIONS.map((number) => (
               <Chip
-                key={num}
-                label={`${num}x`}
-                selected={totalInstallments === num}
-                onPress={() => setTotalInstallments(num)}
+                key={number}
+                label={`${number}x`}
+                selected={totalInstallments === number}
+                onPress={() => setTotalInstallments(number)}
               />
             ))}
           </View>

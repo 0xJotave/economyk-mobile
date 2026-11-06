@@ -41,7 +41,10 @@ export function TransactionItem({
     })
     .onEnd((event) => {
       if (event.translationX < -50) {
-        X.value = withSpring(-BUTTON_WIDTH, { damping: 35, stiffness: 300 });
+        X.value = withSpring(-BUTTON_WIDTH, {
+          damping: 35,
+          stiffness: 300,
+        });
       } else {
         X.value = withSpring(0, { damping: 35, stiffness: 300 });
       }
@@ -52,6 +55,11 @@ export function TransactionItem({
   }));
 
   const isIncome = item.type === "income";
+
+  const installmentColors =
+    item.installmentNumber && item.totalInstallments
+      ? getInstallmentColor(item.installmentNumber, item.totalInstallments)
+      : null;
 
   return (
     <View style={styles.swipeWrapper}>
@@ -65,6 +73,7 @@ export function TransactionItem({
         >
           <Feather name="edit-2" size={18} color={COLORS.white} />
         </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: COLORS.expense }]}
           onPress={() => {
@@ -87,31 +96,23 @@ export function TransactionItem({
             <View style={styles.transactionTags}>
               <Text style={styles.categoryTag}>{item.category}</Text>
 
-              {item.installmentNumber &&
-                item.totalInstallments &&
-                (() => {
-                  const colors = getInstallmentColor(
-                    item.installmentNumber,
-                    item.totalInstallments,
-                  );
-                  return (
-                    <View
-                      style={[
-                        styles.installmentBadge,
-                        { backgroundColor: colors.bg },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.installmentBadgeText,
-                          { color: colors.text },
-                        ]}
-                      >
-                        {item.installmentNumber}/{item.totalInstallments}
-                      </Text>
-                    </View>
-                  );
-                })()}
+              {installmentColors && (
+                <View
+                  style={[
+                    styles.installmentBadge,
+                    { backgroundColor: installmentColors.bg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.installmentBadgeText,
+                      { color: installmentColors.text },
+                    ]}
+                  >
+                    {item.installmentNumber}/{item.totalInstallments}
+                  </Text>
+                </View>
+              )}
 
               {item.isFixed && (
                 <View style={styles.fixedBadge}>

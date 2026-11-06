@@ -1,4 +1,3 @@
-import React from "react";
 import {
   View,
   TouchableOpacity,
@@ -6,9 +5,15 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
-import { useThemeColors, ThemeColors } from "@/styles/theme";
+import { useThemeColors } from "@/styles/theme";
+import type { ThemeColors } from "@/styles/theme";
+import type { FilterType } from "./home-tabs";
 
-type FilterType = "all" | "income" | "expense";
+const FILTER_OPTIONS: { type: FilterType; label: string }[] = [
+  { type: "all", label: "Todas" },
+  { type: "income", label: "Receitas" },
+  { type: "expense", label: "Despesas" },
+];
 
 interface TransactionsFilterProps {
   selectedFilter: FilterType;
@@ -28,39 +33,33 @@ export function TransactionsFilter({
   const COLORS = useThemeColors();
   const styles = getStyles(COLORS);
 
+  const isAllCategories =
+    selectedCategory === "Todas" || selectedCategory === null;
+
   return (
     <View style={styles.filterSection}>
-      {/* FILTROS POR TIPO */}
       <View style={styles.filterChipsRow}>
-        {(["all", "income", "expense"] as FilterType[]).map((type) => {
-          const labels = {
-            all: "Todas",
-            income: "Receitas",
-            expense: "Despesas",
-          };
-          return (
-            <TouchableOpacity
-              key={type}
+        {FILTER_OPTIONS.map(({ type, label }) => (
+          <TouchableOpacity
+            key={type}
+            style={[
+              styles.filterChip,
+              selectedFilter === type && styles.filterChipSelected,
+            ]}
+            onPress={() => setSelectedFilter(type)}
+          >
+            <Text
               style={[
-                styles.filterChip,
-                selectedFilter === type && styles.filterChipSelected,
+                styles.filterChipText,
+                selectedFilter === type && styles.filterChipTextSelected,
               ]}
-              onPress={() => setSelectedFilter(type)}
             >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedFilter === type && styles.filterChipTextSelected,
-                ]}
-              >
-                {labels[type]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* FILTROS POR CATEGORIA */}
       <View style={styles.categoryFilterContainer}>
         <ScrollView
           horizontal
@@ -71,38 +70,37 @@ export function TransactionsFilter({
           <TouchableOpacity
             style={[
               styles.categoryChip,
-              (selectedCategory === "Todas" || selectedCategory === null) &&
-                styles.categoryChipSelected,
+              isAllCategories && styles.categoryChipSelected,
             ]}
             onPress={() => setSelectedCategory("Todas")}
           >
             <Text
               style={[
                 styles.categoryChipText,
-                (selectedCategory === "Todas" || selectedCategory === null) &&
-                  styles.categoryChipTextSelected,
+                isAllCategories && styles.categoryChipTextSelected,
               ]}
             >
               🏷️ Todas
             </Text>
           </TouchableOpacity>
 
-          {categories.map((cat) => (
+          {categories.map((category) => (
             <TouchableOpacity
-              key={cat}
+              key={category}
               style={[
                 styles.categoryChip,
-                selectedCategory === cat && styles.categoryChipSelected,
+                selectedCategory === category && styles.categoryChipSelected,
               ]}
-              onPress={() => setSelectedCategory(cat)}
+              onPress={() => setSelectedCategory(category)}
             >
               <Text
                 style={[
                   styles.categoryChipText,
-                  selectedCategory === cat && styles.categoryChipTextSelected,
+                  selectedCategory === category &&
+                    styles.categoryChipTextSelected,
                 ]}
               >
-                {cat}
+                {category}
               </Text>
             </TouchableOpacity>
           ))}

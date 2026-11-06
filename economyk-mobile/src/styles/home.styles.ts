@@ -138,6 +138,13 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
       letterSpacing: 0.3,
     },
 
+    mainCardSubtitle: {
+      color: COLORS.cream,
+      fontSize: 11,
+      fontFamily: FONT_MEDIUM,
+      marginTop: 7,
+    },
+
     subCardsRow: {
       flexDirection: "row",
       gap: 10,
@@ -145,9 +152,9 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
 
     subCard: {
       flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      padding: 13,
+      minWidth: 0,
+      gap: 8,
+      padding: 10,
       borderRadius: 14,
       backgroundColor: COLORS.surface,
       shadowColor: "#000",
@@ -155,6 +162,10 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
       shadowOpacity: 0.03,
       shadowRadius: 4,
       elevation: 1,
+    },
+
+    subCardContent: {
+      width: "100%",
     },
 
     subCardLabel: {
@@ -366,7 +377,7 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
     },
 
     fixedBadge: {
-      backgroundColor: COLORS.surfaceMuted,
+      backgroundColor: COLORS.burgundy + "99",
       paddingHorizontal: 7,
       paddingVertical: 3,
       borderRadius: 6,
@@ -374,7 +385,7 @@ export const getHomeStyles = (COLORS: ThemeColors) =>
 
     fixedBadgeText: {
       fontSize: 10,
-      color: COLORS.textSecondary,
+      color: COLORS.cream,
       fontWeight: "700",
     },
 
